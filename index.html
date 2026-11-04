@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data:; style-src 'self'; font-src 'self'; manifest-src 'self'; worker-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta name="referrer" content="no-referrer">
+  <title>Meu Diário</title>
+  <meta name="description" content="Diário pessoal online, sincronizado entre celular, tablet e computador.">
+  <meta name="theme-color" content="#5865a8">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icons/icon-192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="Diário">
+  <link rel="stylesheet" href="css/styles.css">
+  <script src="js/theme.js"></script>
+  <script type="module" src="js/app.js"></script>
+</head>
+<body>
+  <div id="app" class="app">
+    <header class="topbar">
+      <button id="btn-back" class="icon-btn back-btn" type="button" aria-label="Voltar para a lista">←</button>
+      <h1 class="brand">Meu Diário</h1>
+      <span id="sync-status" class="sync-status" role="status" aria-live="polite"></span>
+      <button id="btn-settings" class="icon-btn" type="button" aria-label="Configurações" title="Configurações">⚙</button>
+    </header>
+
+    <div id="banner" class="banner" role="status" hidden>
+      <span id="banner-text"></span>
+      <button id="banner-close" class="icon-btn small" type="button" aria-label="Fechar aviso">✕</button>
+    </div>
+
+    <main class="layout">
+      <aside id="list-pane" class="list-pane" aria-label="Minhas anotações">
+        <button id="btn-new" class="btn primary block" type="button">＋ Escrever agora</button>
+        <input id="search" class="input" type="search" placeholder="Buscar no diário…" aria-label="Buscar no diário" autocomplete="off">
+        <ul id="entry-list" class="entry-list"></ul>
+        <p id="empty-list" class="muted empty-list" hidden></p>
+      </aside>
+
+      <section id="editor-pane" class="editor-pane" aria-label="Editor">
+        <div id="editor-empty" class="editor-empty">
+          <p class="editor-empty-title">Como você está hoje?</p>
+          <p class="muted">Toque em <strong>Escrever agora</strong> para começar uma nova anotação, ou escolha uma da lista.</p>
+          <p class="muted small">Dica para o pescoço: use o botão <strong>🎤 Ditar</strong> e fale em vez de digitar — assim você pode segurar o aparelho na altura dos olhos.</p>
+        </div>
+
+        <div id="editor" class="editor" hidden>
+          <div class="editor-meta">
+            <span id="entry-date"></span>
+            <span id="save-state" class="save-state" aria-live="polite"></span>
+          </div>
+          <input id="entry-title" class="title-input" type="text" placeholder="Título (opcional)" maxlength="300" aria-label="Título" autocomplete="off">
+          <div class="mood" role="group" aria-label="Como você está se sentindo?">
+            <span class="mood-label muted small">Humor:</span>
+            <button type="button" data-mood="1" aria-pressed="false" title="Muito mal" aria-label="Muito mal">😢</button>
+            <button type="button" data-mood="2" aria-pressed="false" title="Mal" aria-label="Mal">😕</button>
+            <button type="button" data-mood="3" aria-pressed="false" title="Neutro" aria-label="Neutro">😐</button>
+            <button type="button" data-mood="4" aria-pressed="false" title="Bem" aria-label="Bem">🙂</button>
+            <button type="button" data-mood="5" aria-pressed="false" title="Muito bem" aria-label="Muito bem">😄</button>
+          </div>
+          <textarea id="entry-content" class="content-input" placeholder="Escreva (ou dite) o que está pensando…" aria-label="Texto da anotação" spellcheck="true"></textarea>
+          <div id="voice-interim" class="voice-interim" aria-live="polite" hidden></div>
+          <div class="editor-actions">
+            <button id="btn-voice" class="btn" type="button" aria-pressed="false">🎤 Ditar</button>
+            <button id="btn-speak" class="btn" type="button" aria-pressed="false">🔊 Ouvir</button>
+            <span class="spacer"></span>
+            <button id="btn-delete" class="btn danger" type="button">Excluir</button>
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- Tela de login / cadastro -->
+  <div id="auth-screen" class="auth-screen" hidden>
+    <div class="auth-card">
+      <h2 class="auth-title">Meu Diário</h2>
+      <p class="muted">Entre para guardar suas anotações na nuvem e vê-las no celular, tablet e computador.</p>
+      <div class="tabs" role="tablist">
+        <button id="tab-login" class="tab active" type="button" role="tab" aria-selected="true">Entrar</button>
+        <button id="tab-signup" class="tab" type="button" role="tab" aria-selected="false">Criar conta</button>
+      </div>
+      <form id="auth-form" class="auth-form" novalidate>
+        <label class="field">
+          <span>E-mail</span>
+          <input id="auth-email" class="input" type="email" autocomplete="email" required inputmode="email">
+        </label>
+        <label class="field">
+          <span>Senha</span>
+          <input id="auth-password" class="input" type="password" autocomplete="current-password" required minlength="8">
+        </label>
+        <p id="auth-msg" class="auth-msg" role="alert" hidden></p>
+        <button id="auth-submit" class="btn primary block" type="submit">Entrar</button>
+        <button id="auth-forgot" class="link-btn" type="button">Esqueci minha senha</button>
+      </form>
+      <hr class="sep">
+      <button id="auth-local" class="btn block" type="button">Continuar sem conta (só neste aparelho)</button>
+    </div>
+  </div>
+
+  <!-- Configurações -->
+  <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
+    <form method="dialog" class="dialog-inner">
+      <div class="dialog-head">
+        <h2 id="settings-title">Configurações</h2>
+        <button class="icon-btn" value="close" aria-label="Fechar">✕</button>
+      </div>
+
+      <section class="settings-section">
+        <h3>Conta e sincronização</h3>
+        <p id="account-text" class="muted"></p>
+        <div class="row-wrap">
+          <button id="btn-sync-now" class="btn" type="button">Sincronizar agora</button>
+          <button id="btn-login-open" class="btn primary" type="button">Entrar / criar conta</button>
+          <button id="btn-logout" class="btn" type="button">Sair</button>
+        </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Conforto</h3>
+        <div class="setting-row">
+          <span>Tamanho do texto</span>
+          <div class="row">
+            <button id="font-dec" class="btn small" type="button" aria-label="Diminuir texto">A−</button>
+            <span id="font-value" class="font-value">19</span>
+            <button id="font-inc" class="btn small" type="button" aria-label="Aumentar texto">A+</button>
+          </div>
+        </div>
+        <label class="setting-row">
+          <span>Tema</span>
+          <select id="theme-select" class="input select">
+            <option value="auto">Automático</option>
+            <option value="light">Claro</option>
+            <option value="dark">Escuro</option>
+          </select>
+        </label>
+        <label class="setting-row">
+          <span>Lembrete de pausa para o pescoço</span>
+          <select id="pause-select" class="input select">
+            <option value="0">Desligado</option>
+            <option value="15">A cada 15 min</option>
+            <option value="20">A cada 20 min</option>
+            <option value="30">A cada 30 min</option>
+            <option value="45">A cada 45 min</option>
+          </select>
+        </label>
+      </section>
+
+      <section class="settings-section">
+        <h3>Cópia de segurança</h3>
+        <p class="muted small">Baixe todas as suas anotações em um arquivo.</p>
+        <div class="row-wrap">
+          <button id="btn-export-txt" class="btn" type="button">Baixar como texto (.txt)</button>
+          <button id="btn-export-json" class="btn" type="button">Baixar como dados (.json)</button>
+        </div>
+      </section>
+
+      <p id="app-version" class="muted small center"></p>
+    </form>
+  </dialog>
+
+  <!-- Nova senha (após "Esqueci minha senha") -->
+  <dialog id="recovery-dialog" class="dialog" aria-labelledby="recovery-title">
+    <form id="recovery-form" class="dialog-inner" novalidate>
+      <h2 id="recovery-title">Criar nova senha</h2>
+      <label class="field">
+        <span>Nova senha (mínimo 8 caracteres)</span>
+        <input id="recovery-password" class="input" type="password" autocomplete="new-password" minlength="8" required>
+      </label>
+      <p id="recovery-msg" class="auth-msg" role="alert" hidden></p>
+      <button class="btn primary block" type="submit">Salvar nova senha</button>
+    </form>
+  </dialog>
+
+  <!-- Confirmação genérica -->
+  <dialog id="confirm-dialog" class="dialog" aria-labelledby="confirm-title">
+    <form method="dialog" class="dialog-inner">
+      <h2 id="confirm-title"></h2>
+      <p id="confirm-text" class="muted"></p>
+      <div class="row-wrap end">
+        <button class="btn" value="cancel">Cancelar</button>
+        <button id="confirm-ok" class="btn danger" value="ok">OK</button>
+      </div>
+    </form>
+  </dialog>
+
+  <div id="toast" class="toast" role="status" aria-live="polite" hidden></div>
+</body>
+</html>
