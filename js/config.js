@@ -5,5 +5,5 @@
 // NUNCA coloque aqui a chave "service_role" / "secret".
 //
 // Enquanto estiver vazio, o app funciona apenas no aparelho (sem sincronizar).
-export const SUPABASE_URL = '';
-export const SUPABASE_ANON_KEY = '';
+export const SUPABASE_URL = 'https://fusyhpwqspbidtarkxbe.supabase.co';
+export const SUPABASE_ANON_KEY = 'sb_publishable_vPm32IbV87yIgCyVklhqSg_N5jGtI0P';
