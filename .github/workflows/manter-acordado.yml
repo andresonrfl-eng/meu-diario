@@ -1,0 +1,52 @@
+# Mantém o banco do Supabase "acordado".
+# O plano grátis pausa o projeto depois de 7 dias sem uso; este agendamento dá um
+# "toque" a cada 3 dias chamando a função public.ping() (não lê nenhum dado do diário).
+# A chave usada é a PÚBLICA (a mesma de js/config.js).
+name: Manter o Supabase acordado
+
+on:
+  schedule:
+    - cron: '17 9 */3 * *'   # a cada 3 dias, 06:17 de Brasília
+  workflow_dispatch:          # permite rodar manualmente na aba Actions
+
+permissions:
+  contents: write
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    env:
+      SUPABASE_URL: https://fusyhpwqspbidtarkxbe.supabase.co
+      SUPABASE_KEY: sb_publishable_vPm32IbV87yIgCyVklhqSg_N5jGtI0P
+    steps:
+      - name: Dar um toque no banco
+        run: |
+          for i in 1 2 3; do
+            code=$(curl -s -o resp.txt -w '%{http_code}' -X POST "$SUPABASE_URL/rest/v1/rpc/ping" \
+              -H "apikey: $SUPABASE_KEY" -H "Content-Type: application/json" -d '{}')
+            echo "Tentativa $i: HTTP $code - $(cat resp.txt)"
+            if [ "$code" = "200" ]; then exit 0; fi
+            sleep 30
+          done
+          echo "::error::O banco não respondeu. Se o projeto foi pausado, reative em supabase.com/dashboard."
+          exit 1
+
+      - uses: actions/checkout@v4
+
+      # O GitHub desliga agendamentos de repositórios sem nenhuma atividade por 60 dias.
+      # Se o último commit tiver mais de 45 dias, registra um "batimento" para manter tudo ligado.
+      - name: Manter este agendamento ligado
+        run: |
+          last=$(git log -1 --format=%ct)
+          now=$(date +%s)
+          if [ $(( (now - last) / 86400 )) -ge 45 ]; then
+            date -u +%Y-%m-%dT%H:%M:%SZ > .github/batimento.txt
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add .github/batimento.txt
+            git commit -m "Batimento automático (mantém o agendamento ligado)"
+            git push
+          else
+            echo "Repositório ativo; nada a fazer."
+          fi
