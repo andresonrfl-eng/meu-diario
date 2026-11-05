@@ -18,7 +18,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ### Pendências
 1. ~~Login no GitHub CLI → criar repositório e ativar GitHub Pages.~~ ✅ feito
 2. ~~Projeto Supabase + schema + URLs + config.js~~ ✅ feito
-3. Usuário criar a conta no app (Claude não pode criar contas por ele) e confirmar o e-mail.
+3. ~~Usuário criar a conta no app e confirmar o e-mail.~~ ✅ feito em 05/11/2026 — login funcionou.
 4. Testar login, sincronização real entre dois aparelhos, ditado no celular do usuário.
 
 ### Ideias para o futuro (não feitas)
