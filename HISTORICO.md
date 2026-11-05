@@ -19,7 +19,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 1. ~~Login no GitHub CLI → criar repositório e ativar GitHub Pages.~~ ✅ feito
 2. ~~Projeto Supabase + schema + URLs + config.js~~ ✅ feito
 3. ~~Usuário criar a conta no app e confirmar o e-mail.~~ ✅ feito em 05/11/2026 — login funcionou.
-4. ~~Testar sincronização e ditado~~ ✅ (falta confirmar o tempo real nos aparelhos do usuário). Itens originais: login, sincronização real entre dois aparelhos, ditado no celular do usuário.
+4. ~~Testar sincronização e ditado~~ ✅ — tempo real confirmado pelo usuário nos aparelhos dele (05/11/2026). Itens originais: login, sincronização real entre dois aparelhos, ditado no celular do usuário.
 
 ### Ideias para o futuro (não feitas)
 - Criptografia de ponta a ponta (senha extra que nem o servidor conhece). Risco: esqueceu a senha = perdeu tudo.
