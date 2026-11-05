@@ -67,7 +67,9 @@ Pedido: "deixar pronto para usar todo dia sem me preocupar" — revisão complet
   Configurações mostram a data da última cópia.
 - `public.ping()` no banco (só devolve a hora) + GitHub Actions a cada 3 dias → o projeto grátis não é pausado.
   O mesmo workflow faz um commit "batimento" se o repositório ficar 45 dias parado (o GitHub desliga agendamentos
-  após 60 dias sem atividade).
+  após 60 dias sem atividade). Testado (workflow_dispatch): HTTP 200. **Atenção:** o login do `gh` não tem o escopo
+  `workflow`, então `git push` recusa mudanças em `.github/workflows/` — o arquivo foi criado pelo site do GitHub.
+  Para editar de novo: pelo site, ou `gh auth refresh -s workflow` (o usuário precisa autorizar no navegador).
 - Supabase limpo: removidos pg_cron, pg_net e a função send-reminders. Security Advisor: 0 erros, 1 aviso
   ("Leaked password protection" — só existe no plano pago).
 
