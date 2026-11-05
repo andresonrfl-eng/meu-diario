@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-v1.3.2';
+const CACHE = 'diario-v1.4.0';
 const SHELL = [
   './',
   './index.html',
@@ -10,6 +10,7 @@ const SHELL = [
   './js/db.js',
   './js/sync.js',
   './js/voice.js',
+  './js/lock.js',
   './js/config.js',
   './manifest.webmanifest',
   './icons/sol.svg',

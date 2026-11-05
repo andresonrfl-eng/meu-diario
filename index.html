@@ -107,6 +107,35 @@
     </div>
   </div>
 
+  <!-- Bloqueio com PIN -->
+  <div id="lock-screen" class="lock-screen" role="dialog" aria-modal="true" aria-labelledby="lock-title" tabindex="-1" hidden>
+    <div class="lock-card">
+      <div class="auth-moon" aria-hidden="true"><svg class="mark" viewBox="0 0 24 24"><path class="mark-sun" d="M6.2 12.6a5.8 5.8 0 0 1 11.6 0z"/><path class="mark-line" d="M4 14.8h16M7.2 17.8h9.6"/></svg></div>
+      <h2 id="lock-title" class="lock-title">Digite seu PIN</h2>
+      <p id="lock-sub" class="muted lock-sub"></p>
+      <div id="lock-dots" class="lock-dots" aria-hidden="true"></div>
+      <p id="lock-msg" class="lock-msg" role="alert" aria-live="assertive"></p>
+      <div id="lock-keypad" class="keypad">
+        <button type="button" data-key="1">1</button>
+        <button type="button" data-key="2">2</button>
+        <button type="button" data-key="3">3</button>
+        <button type="button" data-key="4">4</button>
+        <button type="button" data-key="5">5</button>
+        <button type="button" data-key="6">6</button>
+        <button type="button" data-key="7">7</button>
+        <button type="button" data-key="8">8</button>
+        <button type="button" data-key="9">9</button>
+        <button type="button" data-key="back" class="key-soft" aria-label="Apagar">⌫</button>
+        <button type="button" data-key="0">0</button>
+        <button type="button" data-key="ok" class="key-ok" aria-label="Continuar" hidden>✓</button>
+      </div>
+      <div class="lock-links">
+        <button id="lock-cancel" class="link-btn" type="button" hidden>Cancelar</button>
+        <button id="lock-forgot" class="link-btn" type="button">Esqueci o PIN</button>
+      </div>
+    </div>
+  </div>
+
   <!-- Configurações -->
   <dialog id="settings-dialog" class="dialog" aria-labelledby="settings-title">
     <form method="dialog" class="dialog-inner">
@@ -123,6 +152,24 @@
           <button id="btn-login-open" class="btn primary" type="button">Entrar / criar conta</button>
           <button id="btn-logout" class="btn" type="button">Sair</button>
         </div>
+      </section>
+
+      <section class="settings-section">
+        <h3>Bloqueio com PIN</h3>
+        <p id="pin-text" class="muted small"></p>
+        <div class="row-wrap">
+          <button id="btn-pin-set" class="btn" type="button">Criar PIN</button>
+          <button id="btn-pin-remove" class="btn danger" type="button" hidden>Remover PIN</button>
+        </div>
+        <label id="pin-delay-row" class="setting-row" hidden>
+          <span>Pedir o PIN de novo</span>
+          <select id="pin-delay" class="input select">
+            <option value="0">Sempre que sair do app</option>
+            <option value="60">Depois de 1 min fora</option>
+            <option value="300">Depois de 5 min fora</option>
+            <option value="900">Depois de 15 min fora</option>
+          </select>
+        </label>
       </section>
 
       <section class="settings-section">

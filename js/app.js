@@ -5,8 +5,9 @@ import { createSync } from './sync.js';
 import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
+import { createLock, hasPin, clearPin, getLockDelay, setLockDelay } from './lock.js';
 
-const APP_VERSION = '1.3.2';
+const APP_VERSION = '1.4.0';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -66,6 +67,12 @@ const el = {
   btnExportTxt: $('#btn-export-txt'),
   btnExportJson: $('#btn-export-json'),
   appVersion: $('#app-version'),
+  pinText: $('#pin-text'),
+  btnPinSet: $('#btn-pin-set'),
+  btnPinRemove: $('#btn-pin-remove'),
+  pinDelayRow: $('#pin-delay-row'),
+  pinDelay: $('#pin-delay'),
+  lockScreen: $('#lock-screen'),
   // outros diálogos
   recovery: $('#recovery-dialog'),
   recoveryForm: $('#recovery-form'),
@@ -810,8 +817,98 @@ async function logout() {
   await handleSession(null);
 }
 
+// ---------- Bloqueio com PIN ----------
+const lock = createLock({
+  screen: el.lockScreen,
+  title: $('#lock-title'),
+  sub: $('#lock-sub'),
+  dots: $('#lock-dots'),
+  msg: $('#lock-msg'),
+  keypad: $('#lock-keypad'),
+  cancel: $('#lock-cancel'),
+  forgot: $('#lock-forgot'),
+}, {
+  beforeLock() {
+    flushSave();
+    stopVoice();
+    if (el.settings.open) el.settings.close();
+    el.toast.hidden = true;
+  },
+  onForgot: forgotPin,
+});
+
+async function forgotPin() {
+  if (CONFIGURED && state.user) {
+    const ok = await confirmDialog(
+      'Esqueceu o PIN?',
+      'Para criar um PIN novo, você vai sair da conta neste aparelho. Depois é só entrar de novo com seu e-mail e senha: suas anotações estão guardadas na nuvem e voltam sozinhas.',
+      'Sair e entrar de novo',
+    );
+    if (!ok) return;
+    await logout();
+    if (state.user) return; // desistiu de sair (havia anotações não enviadas)
+  } else {
+    const ok = await confirmDialog(
+      'Esqueceu o PIN?',
+      'Sem uma conta na nuvem, o PIN só pode ser removido apagando as anotações guardadas neste aparelho. Isso não pode ser desfeito.',
+      'Apagar e remover o PIN',
+    );
+    if (!ok) return;
+    closeEditor();
+    await db.clearAll();
+    state.entries.clear();
+    renderList();
+  }
+  clearPin();
+  lock.close();
+  renderPin();
+  toast('PIN removido. Você pode criar um novo em ⚙ Configurações.', 5000);
+}
+
+function renderPin() {
+  const on = hasPin();
+  el.pinText.textContent = on
+    ? 'O app pede o PIN ao abrir. O PIN vale só neste aparelho; em cada aparelho você cria o seu.'
+    : 'Peça um PIN de 4 a 6 números para abrir o diário neste aparelho. Ninguém que pegar o aparelho consegue ler suas anotações.';
+  el.btnPinSet.textContent = on ? 'Trocar PIN' : 'Criar PIN';
+  el.btnPinRemove.hidden = !on;
+  el.pinDelayRow.hidden = !on;
+  el.pinDelay.value = String(getLockDelay());
+  if (!el.pinDelay.value) el.pinDelay.value = '0';
+}
+
+async function onPinSet() {
+  const had = hasPin();
+  el.settings.close();
+  const ok = await lock.setup();
+  if (ok) toast(had ? 'PIN trocado ✓' : 'PIN criado ✓ O app vai pedir o PIN ao abrir.', 4500);
+  renderPin();
+  if (!lock.isLocked()) { renderAccount(); el.settings.showModal(); }
+}
+
+async function onPinRemove() {
+  el.settings.close();
+  const ok = await lock.verify();
+  if (ok) { clearPin(); toast('PIN removido.'); }
+  renderPin();
+  if (!lock.isLocked()) { renderAccount(); el.settings.showModal(); }
+}
+
+// Bloqueia ao sair do app (na hora ou depois do tempo escolhido).
+let hiddenAt = 0;
+document.addEventListener('visibilitychange', () => {
+  if (!hasPin()) return;
+  if (document.visibilityState === 'hidden') {
+    hiddenAt = Date.now();
+    if (getLockDelay() === 0) lock.lock();
+  } else if (hiddenAt && Date.now() - hiddenAt >= getLockDelay() * 1000) {
+    lock.lock();
+  }
+});
+
 function renderAccount() {
   el.appVersion.textContent = `Meu Diário · versão ${APP_VERSION}`;
+  renderPin();
   el.btnSyncNow.hidden = !(CONFIGURED && state.user);
   el.btnLogout.hidden = !(CONFIGURED && state.user);
   el.btnLoginOpen.hidden = !(CONFIGURED && !state.user);
@@ -893,6 +990,9 @@ function bindEvents() {
     showAuth();
   });
   el.btnLogout.addEventListener('click', logout);
+  el.btnPinSet.addEventListener('click', onPinSet);
+  el.btnPinRemove.addEventListener('click', onPinRemove);
+  el.pinDelay.addEventListener('change', () => setLockDelay(Number(el.pinDelay.value) || 0));
   el.fontDec.addEventListener('click', () => applyFont(currentFont() - 2));
   el.fontInc.addEventListener('click', () => applyFont(currentFont() + 2));
   el.themeSelect.addEventListener('change', () => applyTheme(el.themeSelect.value));
@@ -941,6 +1041,8 @@ async function boot() {
   if (!el.pauseSelect.value) el.pauseSelect.value = '20';
 
   bindEvents();
+  if (hasPin()) lock.lock();
+  else document.documentElement.classList.remove('locked');
   registerServiceWorker();
   navigator.storage?.persist?.().catch(() => {});
 

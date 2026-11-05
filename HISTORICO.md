@@ -6,7 +6,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.3.2 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.2'` em `sw.js`)
+- **Versão:** 1.4.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.4.0'` em `sw.js`)
+- **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
 - **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
   O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
@@ -33,6 +34,23 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 06/11/2026 — Bloqueio com PIN (v1.4.0)
+- Usuário escolheu, entre as sugestões: **PIN** e **lembrete diário** (não quer gráfico de dor; resumo da semana
+  "só se for de extra").
+- `js/lock.js`: PIN de 4 a 6 números, guardado só no aparelho em `localStorage['diario.pin']` como hash
+  PBKDF2-SHA256 (150 mil iterações, sal aleatório) — nunca o número. Comparação em tempo constante.
+  5 erros → espera de 30 s, dobrando até 5 min (`diario.pinFails`).
+- Tela de bloqueio com teclado numérico grande (76 px), bolinhas, tremida ao errar; funciona com teclado do PC.
+  `js/theme.js` põe `html.locked` antes de desenhar a página, então o conteúdo nunca aparece antes do PIN.
+- Bloqueia ao abrir o app e ao sair dele: "Sempre que sair do app" (padrão) ou depois de 1/5/15 min fora
+  (`diario.lockDelay`). Antes de bloquear: salva, para ditado/leitura, fecha Configurações.
+- Configurações → "Bloqueio com PIN": Criar / Trocar (pede o atual) / Remover (pede o atual).
+- **Esqueci o PIN:** com conta → sai da conta neste aparelho (limpa dados locais) e remove o PIN; entra de novo
+  com e-mail e senha e tudo volta da nuvem. Sem conta → só apagando as anotações do aparelho (avisa que é definitivo).
+- Limitação honesta: protege contra quem pega o aparelho; os dados locais não são criptografados.
+- Testado no navegador: criar, confirmar, bloquear ao recarregar e ao sair, PIN errado, espera após 5 erros,
+  teclado físico, trocar, remover, esqueci o PIN.
 
 ## Sessão 1 (continuação) — 05/11/2026 — Ícone novo no PC (v1.3.2)
 - No celular, reinstalar trocou o ícone; no PC (Windows) **não**, mesmo desinstalando — o navegador/Windows
