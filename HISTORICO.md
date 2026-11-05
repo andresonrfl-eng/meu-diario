@@ -6,11 +6,9 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.4.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.4.0'` em `sw.js`)
+- **Versão:** 1.5.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.5.1'` em `sw.js`)
 - **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
-- **Lembrete diário** (Web Push) — `js/reminder.js`, `supabase/lembretes.sql`, `supabase/functions/send-reminders`.
-  ⏳ Falta o usuário: (1) colar a chave privada VAPID em Edge Functions → Secrets (`VAPID_PRIVATE_KEY`);
-  (2) desligar "Verify JWT" da função send-reminders (o Claude foi bloqueado de mudar essa opção de segurança).
+- **Lembrete diário: DESISTIDO** pelo usuário ("muito complexo") — removido do app e da nuvem na v1.5.1.
 - **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
   O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
@@ -38,7 +36,18 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 
 ---
 
-## Sessão 1 (continuação) — 06/11/2026 — Lembrete diário (v1.5.0)
+## Sessão 1 (continuação) — 06/11/2026 — Lembrete removido (v1.5.1)
+- Na hora de configurar (colar a chave secreta e desligar "Verify JWT"), o usuário achou complexo demais e
+  pediu para deixar a notificação de lado. **Não oferecer de novo sem ele pedir.**
+- Removido: seção nas Configurações, `js/reminder.js`, eventos `push`/`notificationclick` do service worker,
+  `VAPID_PUBLIC_KEY` do `js/config.js`, `supabase/lembretes.sql` e o código da função (continuam no histórico do git,
+  commit `0ecba7a`, se um dia quiser retomar).
+- Nuvem: agendamento `diario-lembretes` desligado (`cron.unschedule`) e tabela `push_subscriptions` apagada.
+  A Edge Function `send-reminders` ainda existe no painel, mas está inerte (sem chave e ninguém a chama);
+  pode ser apagada em Edge Functions → send-reminders → Settings → Delete. As chaves VAPID foram descartadas.
+- Alternativa simples se ele quiser lembrete no futuro: um alarme diário no celular ou evento repetido no calendário.
+
+## Sessão 1 (continuação) — 06/11/2026 — Lembrete diário (v1.5.0) — removido na v1.5.1
 - Como funciona: cada aparelho que liga o lembrete (⚙ → Lembrete diário) se inscreve no Web Push do navegador
   e grava a inscrição em `push_subscriptions` (RLS: só as próprias linhas). O pg_cron (`diario-lembretes`,
   a cada 5 min) chama a Edge Function `send-reminders`, que envia para quem chegou o horário (janela de 30 min),

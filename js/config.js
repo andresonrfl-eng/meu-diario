@@ -7,7 +7,3 @@
 // Enquanto estiver vazio, o app funciona apenas no aparelho (sem sincronizar).
 export const SUPABASE_URL = 'https://fusyhpwqspbidtarkxbe.supabase.co';
 export const SUPABASE_ANON_KEY = 'sb_publishable_vPm32IbV87yIgCyVklhqSg_N5jGtI0P';
-
-// Chave PÚBLICA das notificações (lembrete diário). A privada fica só nos segredos
-// da função send-reminders no Supabase — nunca no código.
-export const VAPID_PUBLIC_KEY = 'BP7KuqyXTKEraMgLwhItHp9GwrGB7ti3z8GaWZ8rBTD-33f8bA7b2L6hNZsL_ef1iwItCYY1R7MGB4yUzws8-tM';
