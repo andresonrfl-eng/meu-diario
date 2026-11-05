@@ -8,17 +8,21 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons');
 mkdirSync(OUT, { recursive: true });
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-// Visual "Calmo e natural": fundo sálvia, folha cor de areia com nervura e um sol pêssego.
+// Visual "Calmo e natural" — símbolo "sol no horizonte" (respiro):
+// fundo sálvia, meio sol pêssego nascendo sobre uma linha de horizonte cor de areia
+// e duas linhas mais curtas embaixo, como água calma.
 const BG_TOP = hex('#6f8f7a');
 const BG_BOTTOM = hex('#557463');
-const LEAF = hex('#f4f1ea');
-const VEIN = hex('#6f8f7a');
 const SUN = hex('#e9b49a');
+const SAND = hex('#f4f1ea');
+const SAND_SOFT = hex('#b9c8bb');
 const inCircle = (x, y, cx, cy, r) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
-// folha = interseção de dois círculos (diagonal de baixo-esquerda para cima-direita)
-const inLeaf = (x, y) => inCircle(x, y, 333.5, 333.5, 170) && inCircle(x, y, 178.5, 178.5, 170);
-// nervura central: faixa estreita ao longo da diagonal x + y = 512
-const onVein = (x, y) => Math.abs((x + y - 512) / Math.SQRT2) < 5 && x > 196 && x < 316;
+// segmento horizontal com pontas arredondadas (de x1 a x2, na altura y, espessura t)
+const inBar = (x, y, x1, x2, cy, t) => {
+  const r = t / 2;
+  const px = Math.min(Math.max(x, x1), x2);
+  return (x - px) ** 2 + (y - cy) ** 2 <= r * r;
+};
 
 // Coordenadas no espaço 512x512 (mesmo desenho do icon.svg)
 function insideRoundRect(x, y, rx, ry, w, h, r) {
@@ -35,8 +39,10 @@ function colorAt(x, y, { rounded, scale }) {
   if (rounded && !insideRoundRect(x, y, 0, 0, 512, 512, 112)) return null;
   const t = Math.min(1, Math.max(0, y / 512));
   let c = BG_TOP.map((v, i) => Math.round(v + (BG_BOTTOM[i] - v) * t));
-  if (inCircle(sx, sy, 150, 150, 40)) c = SUN;
-  if (inLeaf(sx, sy)) c = onVein(sx, sy) ? VEIN : LEAF;
+  if (inCircle(sx, sy, 256, 266, 122) && sy <= 254) c = SUN;
+  if (inBar(sx, sy, 116, 396, 278, 22)) c = SAND;
+  if (inBar(sx, sy, 172, 340, 330, 18)) c = SAND_SOFT;
+  if (inBar(sx, sy, 214, 298, 374, 18)) c = SAND_SOFT;
   return c;
 }
 

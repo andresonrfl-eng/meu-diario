@@ -4,10 +4,13 @@
       <stop offset="0" stop-color="#6f8f7a"/>
       <stop offset="1" stop-color="#557463"/>
     </linearGradient>
-    <clipPath id="a"><circle cx="333.5" cy="333.5" r="170"/></clipPath>
+    <clipPath id="above"><rect x="0" y="0" width="512" height="254"/></clipPath>
   </defs>
   <rect width="512" height="512" rx="112" fill="url(#bg)"/>
-  <circle cx="150" cy="150" r="40" fill="#e9b49a"/>
-  <circle cx="178.5" cy="178.5" r="170" fill="#f4f1ea" clip-path="url(#a)"/>
-  <line x1="196" y1="316" x2="316" y2="196" stroke="#6f8f7a" stroke-width="10" stroke-linecap="round"/>
+  <circle cx="256" cy="266" r="122" fill="#e9b49a" clip-path="url(#above)"/>
+  <g stroke-linecap="round">
+    <line x1="116" y1="278" x2="396" y2="278" stroke="#f4f1ea" stroke-width="22"/>
+    <line x1="172" y1="330" x2="340" y2="330" stroke="#b9c8bb" stroke-width="18"/>
+    <line x1="214" y1="374" x2="298" y2="374" stroke="#b9c8bb" stroke-width="18"/>
+  </g>
 </svg>

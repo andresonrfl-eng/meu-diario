@@ -6,7 +6,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.3.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.0'` em `sw.js`)
+- **Versão:** 1.3.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.1'` em `sw.js`)
+- **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
   O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
 - **App:** publicado e conectado à nuvem.
@@ -32,6 +33,13 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 05/11/2026 — Símbolo "sol no horizonte" (v1.3.1)
+- Usuário perguntou por que uma planta; mostrei opções dentro do tema e ele escolheu o **sol no horizonte**,
+  com o significado de **respiro** (pode ser no meio do dia, não só no fim).
+- Ícone do app: meio sol pêssego sobre linha de horizonte cor de areia + duas linhas curtas (água calma), fundo sálvia.
+- Topo e tela de login usam o mesmo desenho em SVG embutido (classes `.mark-sun`/`.mark-line`, sem estilo inline
+  por causa do CSP). Login ganhou a frase "Um respiro no seu dia." Saudação da tarde: ☀️.
 
 ## Sessão 1 (continuação) — 05/11/2026 — Visual "Calmo e natural" + atualização confiável (v1.3.0)
 - **Bug de atualização corrigido:** o usuário não via a versão nova. Causa: o GitHub Pages manda o navegador

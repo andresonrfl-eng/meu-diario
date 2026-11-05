@@ -202,6 +202,12 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   background: var(--sage-soft);
   font-size: 1.1rem;
 }
+/* símbolo "sol no horizonte" (respiro) */
+.mark { width: 62%; height: 62%; display: block; }
+.mark-sun { fill: var(--peach); }
+.mark-line { fill: none; stroke: var(--sage); stroke-width: 1.8; stroke-linecap: round; }
+.auth-tagline { margin: -2px 0 10px; font-family: var(--font-read); font-style: italic; color: var(--sage); font-size: 1.05rem; }
+
 .sync-status {
   margin-left: auto;
   font-size: .8rem;
@@ -608,6 +614,7 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   background: var(--sage-soft);
   margin-bottom: 14px;
 }
+.auth-moon .mark, .brand-mark .mark { width: 70%; height: 70%; }
 .auth-title { margin: 0 0 6px; font-weight: 800; letter-spacing: -.01em; font-size: 1.8rem; }
 .tabs { display: flex; gap: 4px; background: var(--surface-2); border-radius: 999px; padding: 5px; margin: 20px 0; }
 .tab { flex: 1; min-height: 42px; border: none; background: transparent; border-radius: 999px; font-weight: 750; color: var(--muted); transition: background .25s, color .25s; }

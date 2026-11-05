@@ -22,7 +22,7 @@
   <div id="app" class="app">
     <header class="topbar">
       <button id="btn-back" class="icon-btn back-btn" type="button" aria-label="Voltar para a lista">←</button>
-      <h1 class="brand"><span class="brand-mark" aria-hidden="true">🌿</span>Meu Diário</h1>
+      <h1 class="brand"><span class="brand-mark" aria-hidden="true"><svg class="mark" viewBox="0 0 24 24"><path class="mark-sun" d="M6.2 12.6a5.8 5.8 0 0 1 11.6 0z"/><path class="mark-line" d="M4 14.8h16M7.2 17.8h9.6"/></svg></span>Meu Diário</h1>
       <span id="sync-status" class="sync-status" role="status" aria-live="polite"></span>
       <button id="btn-settings" class="icon-btn" type="button" aria-label="Configurações" title="Configurações">⚙</button>
     </header>
@@ -81,8 +81,9 @@
   <!-- Tela de login / cadastro -->
   <div id="auth-screen" class="auth-screen" hidden>
     <div class="auth-card">
-      <div class="auth-moon" aria-hidden="true">🌿</div>
+      <div class="auth-moon" aria-hidden="true"><svg class="mark" viewBox="0 0 24 24"><path class="mark-sun" d="M6.2 12.6a5.8 5.8 0 0 1 11.6 0z"/><path class="mark-line" d="M4 14.8h16M7.2 17.8h9.6"/></svg></div>
       <h2 class="auth-title">Meu Diário</h2>
+      <p class="auth-tagline">Um respiro no seu dia.</p>
       <p class="muted">Entre para guardar suas anotações na nuvem e vê-las no celular, tablet e computador.</p>
       <div class="tabs" role="tablist">
         <button id="tab-login" class="tab active" type="button" role="tab" aria-selected="true">Entrar</button>

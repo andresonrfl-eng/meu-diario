@@ -6,7 +6,7 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 
-const APP_VERSION = '1.3.0';
+const APP_VERSION = '1.3.1';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -590,7 +590,7 @@ function renderGreeting() {
   let greet = 'Boa noite';
   let icon = '🌙';
   if (h >= 5 && h < 12) { greet = 'Bom dia'; icon = '🌤️'; }
-  else if (h >= 12 && h < 18) { greet = 'Boa tarde'; icon = '🌿'; }
+  else if (h >= 12 && h < 18) { greet = 'Boa tarde'; icon = '☀️'; }
   el.greet.textContent = greet;
   el.greetIcon.textContent = icon;
 }
