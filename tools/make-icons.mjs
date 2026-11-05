@@ -8,17 +8,17 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons');
 mkdirSync(OUT, { recursive: true });
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-// Visual "Noite aconchegante": céu azul-noite, lua crescente âmbar e estrelas lilás.
-const BG_TOP = hex('#1d2547');
-const BG_BOTTOM = hex('#0e1226');
-const MOON = hex('#f0b45a');
-const STAR = hex('#c9c0ff');
+// Visual "Calmo e natural": fundo sálvia, folha cor de areia com nervura e um sol pêssego.
+const BG_TOP = hex('#6f8f7a');
+const BG_BOTTOM = hex('#557463');
+const LEAF = hex('#f4f1ea');
+const VEIN = hex('#6f8f7a');
+const SUN = hex('#e9b49a');
 const inCircle = (x, y, cx, cy, r) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
-// estrela de 4 pontas (losango côncavo)
-const inStar = (x, y, cx, cy, r) => {
-  const dx = Math.abs(x - cx) / r, dy = Math.abs(y - cy) / r;
-  return Math.sqrt(dx) + Math.sqrt(dy) <= 1;
-};
+// folha = interseção de dois círculos (diagonal de baixo-esquerda para cima-direita)
+const inLeaf = (x, y) => inCircle(x, y, 333.5, 333.5, 170) && inCircle(x, y, 178.5, 178.5, 170);
+// nervura central: faixa estreita ao longo da diagonal x + y = 512
+const onVein = (x, y) => Math.abs((x + y - 512) / Math.SQRT2) < 5 && x > 196 && x < 316;
 
 // Coordenadas no espaço 512x512 (mesmo desenho do icon.svg)
 function insideRoundRect(x, y, rx, ry, w, h, r) {
@@ -35,11 +35,8 @@ function colorAt(x, y, { rounded, scale }) {
   if (rounded && !insideRoundRect(x, y, 0, 0, 512, 512, 112)) return null;
   const t = Math.min(1, Math.max(0, y / 512));
   let c = BG_TOP.map((v, i) => Math.round(v + (BG_BOTTOM[i] - v) * t));
-  // lua crescente: círculo âmbar menos um círculo deslocado
-  if (inCircle(sx, sy, 236, 276, 150) && !inCircle(sx, sy, 300, 214, 128)) c = MOON;
-  if (inStar(sx, sy, 362, 330, 46)) c = STAR;
-  if (inStar(sx, sy, 404, 196, 24)) c = STAR;
-  if (inStar(sx, sy, 150, 128, 20)) c = STAR;
+  if (inCircle(sx, sy, 150, 150, 40)) c = SUN;
+  if (inLeaf(sx, sy)) c = onVein(sx, sy) ? VEIN : LEAF;
   return c;
 }
 

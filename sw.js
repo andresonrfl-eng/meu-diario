@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-v1.2.0';
+const CACHE = 'diario-v1.3.0';
 const SHELL = [
   './',
   './index.html',
@@ -21,7 +21,11 @@ const NETWORK_TIMEOUT_MS = 4000;
 
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()),
+    // cache: 'reload' ignora o cache HTTP do navegador (o GitHub Pages manda guardar por 10 min),
+    // senão a versão nova do app podia ser instalada com arquivos antigos.
+    caches.open(CACHE)
+      .then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' }))))
+      .then(() => self.skipWaiting()),
   );
 });
 
@@ -37,8 +41,9 @@ self.addEventListener('activate', (event) => {
 // sem internet ou com rede muito lenta, usa a cópia guardada.
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
-  const fromNetwork = fetch(request).then((res) => {
-    if (res.ok && res.type === 'basic') cache.put(request, res.clone());
+  // no-cache: sempre confere com o servidor (ETag) em vez de usar a cópia de 10 min do navegador.
+  const fromNetwork = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then((res) => {
+    if (res.ok && res.type === 'basic') cache.put(request.url, res.clone());
     return res;
   });
   fromNetwork.catch(() => {}); // evita aviso de erro não tratado quando a cópia guardada é usada

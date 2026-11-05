@@ -6,8 +6,9 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.2.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.2.0'` em `sw.js`)
-- **Visual:** "Noite aconchegante" (escolhido pelo usuário) — tema padrão escuro; claro = "Amanhecer".
+- **Versão:** 1.3.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.0'` em `sw.js`)
+- **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
+  O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
 - **App:** publicado e conectado à nuvem.
 - **Nuvem (Supabase):** ✅ projeto "meu diario" (ref `fusyhpwqspbidtarkxbe`, região us-east-1, plano Free).
   Schema aplicado; Site URL = endereço do Pages; Redirect URLs = Pages/** e localhost:5173/**.
@@ -32,7 +33,20 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 
 ---
 
-## Sessão 1 (continuação) — 05/11/2026 — Novo visual "Noite aconchegante" (v1.2.0)
+## Sessão 1 (continuação) — 05/11/2026 — Visual "Calmo e natural" + atualização confiável (v1.3.0)
+- **Bug de atualização corrigido:** o usuário não via a versão nova. Causa: o GitHub Pages manda o navegador
+  guardar os arquivos por 10 min (`Cache-Control: max-age=600`) e o service worker usava esse cache HTTP — a
+  versão nova podia até ser instalada com CSS antigo. Agora: `install` usa `cache: 'reload'`, a busca usa
+  `cache: 'no-cache'` (confere ETag), registro com `updateViaCache: 'none'`, `reg.update()` ao voltar para o app
+  e recarga automática no `controllerchange` quando nada está sendo digitado/ditado.
+- Usuário não gostou do "Noite aconchegante" → pediu a opção 2, **Calmo e natural**:
+  areia `#f4f1ea`, sálvia `#5f7f6b`, pêssego `#e9b49a`; manchas suaves tipo aquarela no fundo; cartões brancos
+  sem borda com sombra leve; editor num painel arredondado; humor como bolinha colorida nos cartões.
+  Fontes: Nunito (interface e títulos) + Lora (texto do diário); Fraunces removida.
+- Tema: chave `diario.theme3`, padrão "light" (Dia); opções Dia / Noite (floresta escura) / Seguir o aparelho.
+- Ícone: folha cor de areia com sol pêssego em fundo sálvia. Saudação com 🌤️/🌿/🌙.
+
+## Sessão 1 (continuação) — 05/11/2026 — Novo visual "Noite aconchegante" (v1.2.0) — substituído na v1.3.0
 - Usuário achou o visual genérico; entre 3 propostas (caderno de papel / calmo e natural / noite aconchegante)
   escolheu **Noite aconchegante**.
 - `css/styles.css` reescrito: céu azul-noite com brilhos suaves e estrelas (só CSS), âmbar `#f0b45a` como

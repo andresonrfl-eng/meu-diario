@@ -1,17 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
   <defs>
-    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#1d2547"/>
-      <stop offset="1" stop-color="#0e1226"/>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#6f8f7a"/>
+      <stop offset="1" stop-color="#557463"/>
     </linearGradient>
-    <mask id="crescent">
-      <circle cx="236" cy="276" r="150" fill="#fff"/>
-      <circle cx="300" cy="214" r="128" fill="#000"/>
-    </mask>
+    <clipPath id="a"><circle cx="333.5" cy="333.5" r="170"/></clipPath>
   </defs>
-  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
-  <rect width="512" height="512" fill="#f0b45a" mask="url(#crescent)"/>
-  <path fill="#c9c0ff" d="M362 284 Q362 330 408 330 Q362 330 362 376 Q362 330 316 330 Q362 330 362 284Z"/>
-  <path fill="#c9c0ff" d="M404 172 Q404 196 428 196 Q404 196 404 220 Q404 196 380 196 Q404 196 404 172Z"/>
-  <path fill="#c9c0ff" d="M150 108 Q150 128 170 128 Q150 128 150 148 Q150 128 130 128 Q150 128 150 108Z"/>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <circle cx="150" cy="150" r="40" fill="#e9b49a"/>
+  <circle cx="178.5" cy="178.5" r="170" fill="#f4f1ea" clip-path="url(#a)"/>
+  <line x1="196" y1="316" x2="316" y2="196" stroke="#6f8f7a" stroke-width="10" stroke-linecap="round"/>
 </svg>

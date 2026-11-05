@@ -6,7 +6,7 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.3.0';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -577,20 +577,20 @@ function currentFont() {
   return Number.isFinite(v) ? v : 19;
 }
 function applyTheme(t) {
-  if (t !== 'light' && t !== 'auto') t = 'dark';
+  if (t !== 'dark' && t !== 'auto') t = 'light';
   document.documentElement.setAttribute('data-theme', t);
-  setPref('theme2', t);
-  const dark = t === 'dark' || (t === 'auto' && !window.matchMedia('(prefers-color-scheme: light)').matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#10152a' : '#f6f1ea');
+  setPref('theme3', t);
+  const dark = t === 'dark' || (t === 'auto' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#161d19' : '#f4f1ea');
 }
 
 // Saudação da tela inicial conforme a hora do dia.
 function renderGreeting() {
   const h = new Date().getHours();
   let greet = 'Boa noite';
-  let icon = '☾';
-  if (h >= 5 && h < 12) { greet = 'Bom dia'; icon = '☀'; }
-  else if (h >= 12 && h < 18) { greet = 'Boa tarde'; icon = '✦'; }
+  let icon = '🌙';
+  if (h >= 5 && h < 12) { greet = 'Bom dia'; icon = '🌤️'; }
+  else if (h >= 12 && h < 18) { greet = 'Boa tarde'; icon = '🌿'; }
   el.greet.textContent = greet;
   el.greetIcon.textContent = icon;
 }
@@ -905,17 +905,38 @@ function bindEvents() {
 
 function registerServiceWorker() {
   if (!('serviceWorker' in navigator)) return;
-  navigator.serviceWorker.register('sw.js').catch((e) => console.warn('Service worker não registrado', e));
+  const hadController = !!navigator.serviceWorker.controller;
+  navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' })
+    .then((reg) => {
+      // Procura versão nova sempre que o app volta para a tela.
+      document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'visible') reg.update().catch(() => {});
+      });
+    })
+    .catch((e) => console.warn('Service worker não registrado', e));
+  // Versão nova instalada: recarrega sozinho quando for seguro (nada sendo digitado ou ditado).
+  let reloading = false;
+  navigator.serviceWorker.addEventListener('controllerchange', () => {
+    if (!hadController || reloading) return;
+    const tryReload = () => {
+      const busy = state.saveTimer || state.pendingWrites.size || dictation?.active ||
+        (document.activeElement === el.content || document.activeElement === el.title);
+      if (busy && document.visibilityState === 'visible') { setTimeout(tryReload, 4000); return; }
+      reloading = true;
+      location.reload();
+    };
+    tryReload();
+  });
 }
 
 async function boot() {
   el.fontValue.textContent = String(applyFont(currentFont()));
-  const theme = getPref('theme2', 'dark');
+  const theme = getPref('theme3', 'light');
   el.themeSelect.value = theme;
-  if (!el.themeSelect.value) el.themeSelect.value = 'dark';
+  if (!el.themeSelect.value) el.themeSelect.value = 'light';
   applyTheme(el.themeSelect.value);
   renderGreeting();
-  window.matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => applyTheme(el.themeSelect.value));
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(el.themeSelect.value));
   el.pauseSelect.value = getPref('pause', '20');
   if (!el.pauseSelect.value) el.pauseSelect.value = '20';
 

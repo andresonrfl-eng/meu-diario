@@ -7,7 +7,7 @@
   <meta name="referrer" content="no-referrer">
   <title>Meu Diário</title>
   <meta name="description" content="Diário pessoal online, sincronizado entre celular, tablet e computador.">
-  <meta name="theme-color" content="#10152a">
+  <meta name="theme-color" content="#f4f1ea">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="icons/icon-192.png">
@@ -22,7 +22,7 @@
   <div id="app" class="app">
     <header class="topbar">
       <button id="btn-back" class="icon-btn back-btn" type="button" aria-label="Voltar para a lista">←</button>
-      <h1 class="brand"><span class="brand-star" aria-hidden="true">✦</span>Meu Diário</h1>
+      <h1 class="brand"><span class="brand-mark" aria-hidden="true">🌿</span>Meu Diário</h1>
       <span id="sync-status" class="sync-status" role="status" aria-live="polite"></span>
       <button id="btn-settings" class="icon-btn" type="button" aria-label="Configurações" title="Configurações">⚙</button>
     </header>
@@ -44,7 +44,7 @@
 
       <section id="editor-pane" class="editor-pane" aria-label="Editor">
         <div id="editor-empty" class="editor-empty">
-          <p id="greet-icon" class="editor-empty-moon" aria-hidden="true">☾</p>
+          <p id="greet-icon" class="editor-empty-moon" aria-hidden="true">🌙</p>
           <p id="greet" class="editor-empty-greet">Boa noite</p>
           <p class="editor-empty-title">Como você está hoje?</p>
           <p class="muted">Toque em <strong>Escrever agora</strong> para começar uma nova anotação, ou escolha uma da lista.</p>
@@ -81,7 +81,7 @@
   <!-- Tela de login / cadastro -->
   <div id="auth-screen" class="auth-screen" hidden>
     <div class="auth-card">
-      <div class="auth-moon" aria-hidden="true">☾</div>
+      <div class="auth-moon" aria-hidden="true">🌿</div>
       <h2 class="auth-title">Meu Diário</h2>
       <p class="muted">Entre para guardar suas anotações na nuvem e vê-las no celular, tablet e computador.</p>
       <div class="tabs" role="tablist">
@@ -137,8 +137,8 @@
         <label class="setting-row">
           <span>Tema</span>
           <select id="theme-select" class="input select">
+            <option value="light">Dia (claro)</option>
             <option value="dark">Noite (escuro)</option>
-            <option value="light">Amanhecer (claro)</option>
             <option value="auto">Seguir o aparelho</option>
           </select>
         </label>
