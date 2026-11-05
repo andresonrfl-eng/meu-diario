@@ -6,19 +6,20 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.0.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.0.0'` em `sw.js`)
-- **App:** pronto e testado localmente (modo "só neste aparelho").
-- **Nuvem (Supabase):** ⏳ **ainda não configurada** — `js/config.js` está vazio. O usuário precisa criar a
-  conta/projeto no Supabase (passo a passo no README) e passar a URL + chave pública.
+- **Versão:** 1.0.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.0.1'` em `sw.js`)
+- **App:** publicado e conectado à nuvem.
+- **Nuvem (Supabase):** ✅ projeto "meu diario" (ref `fusyhpwqspbidtarkxbe`, região us-east-1, plano Free).
+  Schema aplicado; Site URL = endereço do Pages; Redirect URLs = Pages/** e localhost:5173/**.
+  `js/config.js` usa a chave **publishable** (`sb_publishable_…`). Acesso anônimo à tabela testado: bloqueado (401).
 - **GitHub:** repositório público <https://github.com/andresonrfl-eng/meu-diario> (branch `main`).
   GitHub CLI logado como `andresonrfl-eng` (gh em `C:\Program Files\GitHub CLI\gh.exe`).
 - **Endereço do app (GitHub Pages):** <https://andresonrfl-eng.github.io/meu-diario/> — publica sozinho a cada `git push`.
 
 ### Pendências
 1. ~~Login no GitHub CLI → criar repositório e ativar GitHub Pages.~~ ✅ feito
-2. Usuário criar projeto no Supabase → rodar `supabase/schema.sql` → configurar Site URL/Redirect URLs
-   com o endereço do GitHub Pages → preencher `js/config.js` → subir versão do cache → publicar.
-3. Testar login, sincronização real entre dois aparelhos, ditado no celular do usuário.
+2. ~~Projeto Supabase + schema + URLs + config.js~~ ✅ feito
+3. Usuário criar a conta no app (Claude não pode criar contas por ele) e confirmar o e-mail.
+4. Testar login, sincronização real entre dois aparelhos, ditado no celular do usuário.
 
 ### Ideias para o futuro (não feitas)
 - Criptografia de ponta a ponta (senha extra que nem o servidor conhece). Risco: esqueceu a senha = perdeu tudo.
@@ -29,6 +30,13 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 05/11/2026 — Nuvem conectada (v1.0.1)
+- Usuário criou o projeto Supabase (região us-east-1, não São Paulo — funciona igual, só um pouco mais de latência).
+- Via Claude in Chrome: schema rodado no SQL Editor (aviso de "operações destrutivas" é só pelos `drop ... if exists`),
+  Site URL e Redirect URLs configuradas, chave publishable copiada para `js/config.js`.
+- Se o usuário já tinha escrito no modo "só neste aparelho", essas anotações sobem ao entrar na conta
+  (não há `uid` anterior salvo, então nada é apagado).
 
 ## Sessão 1 (continuação) — 04/11/2026 — Publicação
 - Login no GitHub CLI (dica: `gh auth login --web` no terminal do app travava esperando Enter; rodar com
