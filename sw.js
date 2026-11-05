@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-v1.4.0';
+const CACHE = 'diario-v1.5.0';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,7 @@ const SHELL = [
   './js/sync.js',
   './js/voice.js',
   './js/lock.js',
+  './js/reminder.js',
   './js/config.js',
   './manifest.webmanifest',
   './icons/sol.svg',
@@ -73,6 +74,31 @@ async function cacheFirst(request) {
   if (res.ok) cache.put(request, res.clone());
   return res;
 }
+
+// Lembrete diário (enviado pela função send-reminders no Supabase)
+self.addEventListener('push', (event) => {
+  let data = {};
+  try { data = event.data ? event.data.json() : {}; } catch { data = { body: event.data?.text() }; }
+  event.waitUntil(self.registration.showNotification(data.title || 'Meu Diário', {
+    body: data.body || 'Que tal um respiro? Conte como foi seu dia.',
+    icon: './icons/sol-192.png',
+    badge: './icons/sol-192.png',
+    tag: 'diario-lembrete',
+    lang: 'pt-BR',
+    data: { url: data.url || './' },
+  }));
+});
+
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close();
+  const target = new URL(event.notification.data?.url || './', self.registration.scope).href;
+  event.waitUntil((async () => {
+    const wins = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    const open = wins.find((w) => w.url.startsWith(self.registration.scope));
+    if (open) return open.focus();
+    return self.clients.openWindow(target);
+  })());
+});
 
 self.addEventListener('fetch', (event) => {
   const req = event.request;

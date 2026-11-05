@@ -8,6 +8,9 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ## Situação atual (resumo rápido)
 - **Versão:** 1.4.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.4.0'` em `sw.js`)
 - **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
+- **Lembrete diário** (Web Push) — `js/reminder.js`, `supabase/lembretes.sql`, `supabase/functions/send-reminders`.
+  ⏳ Falta o usuário: (1) colar a chave privada VAPID em Edge Functions → Secrets (`VAPID_PRIVATE_KEY`);
+  (2) desligar "Verify JWT" da função send-reminders (o Claude foi bloqueado de mudar essa opção de segurança).
 - **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
   O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
@@ -34,6 +37,20 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 06/11/2026 — Lembrete diário (v1.5.0)
+- Como funciona: cada aparelho que liga o lembrete (⚙ → Lembrete diário) se inscreve no Web Push do navegador
+  e grava a inscrição em `push_subscriptions` (RLS: só as próprias linhas). O pg_cron (`diario-lembretes`,
+  a cada 5 min) chama a Edge Function `send-reminders`, que envia para quem chegou o horário (janela de 30 min),
+  uma vez por dia (`last_sent`), e pula quem já escreveu no dia se `skip_if_written`. Inscrições mortas (404/410)
+  são apagadas. Ao sair da conta, o lembrete do aparelho é desligado.
+- Chaves VAPID: a **pública** está em `js/config.js` e na função; a **privada** NÃO está no repositório — vai só
+  no segredo `VAPID_PRIVATE_KEY` da função (o usuário cola; Claude não digita chaves em formulários).
+- A função foi publicada pelo editor do painel (cópia de `supabase/functions/send-reminders/index.ts`).
+  Ela precisa de "Verify JWT" desligado porque o cron chama sem token; é seguro porque a função só envia
+  lembretes que já estão na hora e não devolve dados.
+- iPhone: só funciona com o app instalado na Tela de Início (iOS 16.4+); o app explica isso na tela.
+- Service worker: eventos `push` (mostra a notificação com o ícone do sol) e `notificationclick` (abre o app).
 
 ## Sessão 1 (continuação) — 06/11/2026 — Bloqueio com PIN (v1.4.0)
 - Usuário escolheu, entre as sugestões: **PIN** e **lembrete diário** (não quer gráfico de dor; resumo da semana

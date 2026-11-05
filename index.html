@@ -155,6 +155,24 @@
       </section>
 
       <section class="settings-section">
+        <h3>Lembrete diário</h3>
+        <p id="reminder-text" class="muted small">Uma notificação por dia, no horário que você escolher, convidando para escrever.</p>
+        <label class="setting-row">
+          <span>Receber lembrete neste aparelho</span>
+          <input id="reminder-on" class="switch" type="checkbox" role="switch">
+        </label>
+        <label class="setting-row">
+          <span>Horário</span>
+          <input id="reminder-time" class="input select time-input" type="time" value="20:00" step="300">
+        </label>
+        <label class="setting-row">
+          <span>Não lembrar se eu já escrevi no dia</span>
+          <input id="reminder-skip" class="switch" type="checkbox" role="switch" checked>
+        </label>
+        <p id="reminder-msg" class="auth-msg" role="alert" hidden></p>
+      </section>
+
+      <section class="settings-section">
         <h3>Bloqueio com PIN</h3>
         <p id="pin-text" class="muted small"></p>
         <div class="row-wrap">

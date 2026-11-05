@@ -6,8 +6,11 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 import { createLock, hasPin, clearPin, getLockDelay, setLockDelay } from './lock.js';
+import {
+  pushSupported, isIOS, isStandalone, getReminderPrefs, enableReminder, disableReminder,
+} from './reminder.js';
 
-const APP_VERSION = '1.4.0';
+const APP_VERSION = '1.5.0';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -73,6 +76,11 @@ const el = {
   pinDelayRow: $('#pin-delay-row'),
   pinDelay: $('#pin-delay'),
   lockScreen: $('#lock-screen'),
+  reminderText: $('#reminder-text'),
+  reminderOn: $('#reminder-on'),
+  reminderTime: $('#reminder-time'),
+  reminderSkip: $('#reminder-skip'),
+  reminderMsg: $('#reminder-msg'),
   // outros diálogos
   recovery: $('#recovery-dialog'),
   recoveryForm: $('#recovery-form'),
@@ -802,6 +810,8 @@ async function logout() {
     if (!ok) { sync?.start(); return; }
   }
   state.sync = null;
+  // o lembrete é da conta: para de chegar neste aparelho ao sair
+  if (getReminderPrefs().on) await disableReminder(state.sb);
   closeEditor();
   await db.clearAll();
   state.entries.clear();
@@ -906,9 +916,66 @@ document.addEventListener('visibilitychange', () => {
   }
 });
 
+// ---------- Lembrete diário ----------
+function reminderMsg(text, ok = false) {
+  el.reminderMsg.textContent = text || '';
+  el.reminderMsg.classList.toggle('ok', ok);
+  el.reminderMsg.hidden = !text;
+}
+
+function renderReminder() {
+  const p = getReminderPrefs();
+  el.reminderOn.checked = p.on;
+  el.reminderTime.value = p.time;
+  el.reminderSkip.checked = p.skip;
+  const logged = CONFIGURED && state.user;
+  let text = 'Uma notificação por dia, no horário que você escolher, convidando para escrever. Vale só para este aparelho.';
+  let can = true;
+  if (!logged) { text = 'Para receber o lembrete, entre com sua conta (ele é enviado pela nuvem).'; can = false; }
+  else if (!pushSupported) {
+    text = isIOS && !isStandalone
+      ? 'No iPhone/iPad, o lembrete só funciona com o app instalado: Compartilhar → Adicionar à Tela de Início, e abra por lá.'
+      : 'Este navegador não permite notificações.';
+    can = false;
+  }
+  el.reminderText.textContent = text;
+  el.reminderOn.disabled = !can;
+  el.reminderTime.disabled = !can;
+  el.reminderSkip.disabled = !can;
+}
+
+let reminderBusy = false;
+async function onReminderChange(ev) {
+  if (reminderBusy) return;
+  reminderBusy = true;
+  reminderMsg('');
+  const time = el.reminderTime.value || '20:00';
+  const skip = el.reminderSkip.checked;
+  try {
+    if (el.reminderOn.checked) {
+      if (ev?.target === el.reminderOn) reminderMsg('Ativando…', true);
+      await enableReminder(state.sb, { time, skip });
+      reminderMsg(`Combinado: lembrete todo dia às ${time}. 🌅`, true);
+    } else if (ev?.target === el.reminderOn) {
+      await disableReminder(state.sb);
+      reminderMsg('Lembrete desligado neste aparelho.', true);
+    } else {
+      // só mudou horário/opção com o lembrete desligado: guarda para quando ligar
+      try { localStorage.setItem('diario.reminder', JSON.stringify({ on: false, time, skip })); } catch { /* ignore */ }
+    }
+  } catch (e) {
+    console.warn(e);
+    el.reminderOn.checked = false;
+    reminderMsg(e.message || 'Não foi possível ativar o lembrete.');
+  } finally {
+    reminderBusy = false;
+  }
+}
+
 function renderAccount() {
   el.appVersion.textContent = `Meu Diário · versão ${APP_VERSION}`;
   renderPin();
+  renderReminder();
   el.btnSyncNow.hidden = !(CONFIGURED && state.user);
   el.btnLogout.hidden = !(CONFIGURED && state.user);
   el.btnLoginOpen.hidden = !(CONFIGURED && !state.user);
@@ -993,6 +1060,9 @@ function bindEvents() {
   el.btnPinSet.addEventListener('click', onPinSet);
   el.btnPinRemove.addEventListener('click', onPinRemove);
   el.pinDelay.addEventListener('change', () => setLockDelay(Number(el.pinDelay.value) || 0));
+  el.reminderOn.addEventListener('change', onReminderChange);
+  el.reminderTime.addEventListener('change', onReminderChange);
+  el.reminderSkip.addEventListener('change', onReminderChange);
   el.fontDec.addEventListener('click', () => applyFont(currentFont() - 2));
   el.fontInc.addEventListener('click', () => applyFont(currentFont() + 2));
   el.themeSelect.addEventListener('change', () => applyTheme(el.themeSelect.value));
