@@ -2,6 +2,8 @@
 
 Diário pessoal online. Funciona no **celular, tablet e computador**, com as anotações guardadas na nuvem e sincronizadas entre todos os aparelhos.
 
+**Abrir o app:** <https://andresonrfl-eng.github.io/meu-diario/>
+
 Foi pensado para quem precisa **poupar o pescoço** (síndrome dolorosa miofascial cervical):
 
 - **🎤 Ditar**: fale em vez de digitar e segure o aparelho na altura dos olhos. Diga "vírgula", "ponto final", "ponto de interrogação" ou "nova linha" para pontuar.
@@ -41,7 +43,7 @@ Arquivos principais: `index.html`, `css/styles.css`, `js/app.js` (interface), `j
    - Nome: `meu-diario` · Região: **South America (São Paulo)** · crie e guarde uma senha forte do banco.
 2. No menu da esquerda, abra **SQL Editor → New query**, cole todo o conteúdo de [`supabase/schema.sql`](supabase/schema.sql) e clique em **Run**.
 3. Em **Authentication → URL Configuration**:
-   - **Site URL**: o endereço do app no GitHub Pages (ex.: `https://SEU-USUARIO.github.io/meu-diario/`).
+   - **Site URL**: `https://andresonrfl-eng.github.io/meu-diario/`
    - **Redirect URLs**: adicione o mesmo endereço (e `http://localhost:5173/` se quiser testar no computador).
 4. Em **Project Settings → API** (ou **API Keys**), copie:
    - **Project URL** (ex.: `https://abcd1234.supabase.co`)

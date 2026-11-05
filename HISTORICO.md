@@ -10,11 +10,12 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - **App:** pronto e testado localmente (modo "só neste aparelho").
 - **Nuvem (Supabase):** ⏳ **ainda não configurada** — `js/config.js` está vazio. O usuário precisa criar a
   conta/projeto no Supabase (passo a passo no README) e passar a URL + chave pública.
-- **GitHub:** repositório local criado (git). GitHub CLI instalado; publicação no GitHub e GitHub Pages
-  depende do usuário fazer login (`gh auth login`). Ver pendências.
+- **GitHub:** repositório público <https://github.com/andresonrfl-eng/meu-diario> (branch `main`).
+  GitHub CLI logado como `andresonrfl-eng` (gh em `C:\Program Files\GitHub CLI\gh.exe`).
+- **Endereço do app (GitHub Pages):** <https://andresonrfl-eng.github.io/meu-diario/> — publica sozinho a cada `git push`.
 
 ### Pendências
-1. Usuário fazer login no GitHub CLI → criar repositório `meu-diario` e ativar GitHub Pages.
+1. ~~Login no GitHub CLI → criar repositório e ativar GitHub Pages.~~ ✅ feito
 2. Usuário criar projeto no Supabase → rodar `supabase/schema.sql` → configurar Site URL/Redirect URLs
    com o endereço do GitHub Pages → preencher `js/config.js` → subir versão do cache → publicar.
 3. Testar login, sincronização real entre dois aparelhos, ditado no celular do usuário.
@@ -28,6 +29,12 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 04/11/2026 — Publicação
+- Login no GitHub CLI (dica: `gh auth login --web` no terminal do app travava esperando Enter; rodar com
+  `echo "" | gh auth login ... --web` em segundo plano funcionou — basta o usuário digitar o código no navegador).
+- Criado repositório público `andresonrfl-eng/meu-diario` (público porque GitHub Pages grátis exige;
+  os textos ficam no Supabase, não no GitHub) e ativado GitHub Pages na branch `main`, pasta `/`.
 
 ## Sessão 1 — 04/11/2026 — Criação do app
 
