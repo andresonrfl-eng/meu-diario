@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-v1.5.1';
+const CACHE = 'diario-final-1.0';
 const SHELL = [
   './',
   './index.html',
@@ -43,8 +43,10 @@ self.addEventListener('activate', (event) => {
 async function networkFirst(request) {
   const cache = await caches.open(CACHE);
   // no-cache: sempre confere com o servidor (ETag) em vez de usar a cópia de 10 min do navegador.
+  // A cópia é guardada sem "?..." (links de confirmação de e-mail trazem códigos no endereço).
+  const key = request.url.split('?')[0].split('#')[0];
   const fromNetwork = fetch(request.url, { cache: 'no-cache', credentials: 'same-origin' }).then((res) => {
-    if (res.ok && res.type === 'basic') cache.put(request.url, res.clone());
+    if (res.ok && res.type === 'basic') cache.put(key, res.clone());
     return res;
   });
   fromNetwork.catch(() => {}); // evita aviso de erro não tratado quando a cópia guardada é usada

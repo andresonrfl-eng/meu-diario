@@ -76,15 +76,22 @@ export async function countDirty() {
 }
 
 // Depois de enviar para a nuvem: só marca como "limpo" se ninguém editou no meio-tempo.
-export function markClean(id, rev) {
+// serverUpdatedAt = versão que ficou no servidor; é guardada mesmo se houve edição no meio
+// (serve de "base" para detectar edições feitas em outro aparelho — ver sync.js).
+export function markClean(id, rev, serverUpdatedAt) {
   return run('entries', 'readwrite', (tx) => {
     const s = tx.objectStore('entries');
     const r = s.get(id);
     r.onsuccess = () => {
       const rec = r.result;
-      if (!rec || rec.rev !== rev) return;
+      if (!rec) return;
+      const base = serverUpdatedAt ? { server_updated_at: serverUpdatedAt } : {};
+      if (rec.rev !== rev) {
+        if (serverUpdatedAt) s.put({ ...rec, ...base });
+        return;
+      }
       if (rec.deleted) s.delete(id);
-      else s.put({ ...rec, dirty: 0 });
+      else s.put({ ...rec, ...base, dirty: 0 });
     };
   });
 }

@@ -80,6 +80,22 @@ revoke all on public.entries from anon;
 grant select, insert, update, delete on public.entries to authenticated;
 
 -- ---------------------------------------------------------------------
+-- "Toque" para o projeto grátis não ser pausado por falta de uso.
+-- Chamado a cada 3 dias pelo GitHub (.github/workflows/manter-acordado.yml).
+-- Não lê nem devolve nenhum dado: só responde a hora do servidor.
+-- ---------------------------------------------------------------------
+create or replace function public.ping()
+returns timestamptz
+language sql
+stable
+security invoker
+set search_path = ''
+as $$ select now() $$;
+
+revoke all on function public.ping() from public;
+grant execute on function public.ping() to anon, authenticated;
+
+-- ---------------------------------------------------------------------
 -- Tempo real: avisa os outros aparelhos logo que algo muda.
 -- O Realtime respeita o RLS: cada pessoa só recebe avisos das próprias anotações.
 -- ---------------------------------------------------------------------

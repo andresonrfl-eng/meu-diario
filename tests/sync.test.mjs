@@ -16,6 +16,7 @@ const server = new Map();
 let tick = Date.parse('2026-11-04T20:00:00Z');
 const now = () => new Date(tick += 7).toISOString();
 let hookUpsert = null;
+const MAX_CONTENT = 200000;
 let failNext = false;
 const calls = { upsert: 0, select: 0 };
 
@@ -24,23 +25,27 @@ function builder() {
   const b = {
     upsert(rows) {
       calls.upsert++;
-      return {
-        then: async (res, rej) => {
-          try {
-            if (failNext) { failNext = false; throw new TypeError('Failed to fetch'); }
-            for (const r of rows) {
-              const t = now();
-              const row = { ...(server.get(r.id) || {}), ...r, updated_at: t };
-              if (row.deleted) { row.title = ''; row.content = ''; row.mood = null; }
-              server.set(r.id, row);
-            }
-            if (hookUpsert) { const h = hookUpsert; hookUpsert = null; await h(); }
-            res({ error: null });
-          } catch (e) { rej(e); }
-        },
+      const exec = async () => {
+        if (failNext) { failNext = false; throw new TypeError('Failed to fetch'); }
+        // como o Postgres: a gravação do lote é tudo ou nada (check constraint)
+        if (rows.some((r) => (r.content || '').length > MAX_CONTENT)) {
+          return { data: null, error: { message: 'new row violates check constraint "entries_content_check"', code: '23514' } };
+        }
+        const out = [];
+        for (const r of rows) {
+          const t = now();
+          const row = { ...(server.get(r.id) || {}), ...r, updated_at: t };
+          if (row.deleted) { row.title = ''; row.content = ''; row.mood = null; }
+          server.set(r.id, row);
+          out.push({ id: r.id, updated_at: t });
+        }
+        if (hookUpsert) { const h = hookUpsert; hookUpsert = null; await h(); }
+        return { data: out, error: null };
       };
+      return { select: () => ({ then: (res, rej) => exec().then(res, rej) }) };
     },
     select() { calls.select++; return b; },
+    in(col, vals) { q.filters.push((r) => vals.includes(r[col])); return b; },
     gte(col, v) { q.filters.push((r) => Date.parse(r[col]) >= Date.parse(v)); return b; },
     order() { return b; },
     range(a, z) { q.from = a; q.to = z; return b; },
@@ -56,7 +61,10 @@ const sb = { from: () => builder() };
 
 const statuses = [];
 let remote = [];
-const sync = createSync({ sb, onStatus: (s) => statuses.push(s), onRemoteChange: (ids) => remote.push(...ids) });
+let conflicts = 0;
+const sync = createSync({
+  sb, onStatus: (s) => statuses.push(s), onRemoteChange: (ids) => remote.push(...ids), onConflict: (n) => { conflicts += n; },
+});
 const last = () => statuses[statuses.length - 1];
 
 // 1. entrada local é enviada
@@ -94,9 +102,17 @@ await db.put({ ...(await db.get('b')), content: 'local pendente', rev: 5, dirty:
 hookUpsert = null;
 server.set('b', { ...server.get('b'), content: 'remoto conflitante', updated_at: now() });
 await sync.runNow();
-assert.equal(server.get('b').content, 'local pendente', 'local enviado vence');
+assert.equal(server.get('b').content, 'local pendente', 'local enviado fica na anotação original');
 assert.equal((await db.get('b')).content, 'local pendente');
-console.log('ok 4 conflito');
+{
+  // ...e a versão do outro aparelho NÃO se perde: vira uma anotação separada
+  const copia = [...server.values()].find((r) => r.content === 'remoto conflitante' && r.id !== 'b');
+  assert.ok(copia, 'versão do outro aparelho guardada como cópia');
+  assert.match(copia.title, /outro aparelho/);
+  assert.equal((await db.get(copia.id)).dirty, 0, 'cópia já enviada');
+  assert.equal(conflicts, 1);
+}
+console.log('ok 4 conflito (nada se perde)');
 
 // 5. exclusão remota remove localmente
 server.set('b', { ...server.get('b'), deleted: true, content: '', updated_at: now() });
@@ -166,6 +182,47 @@ console.log('ok 10 limpar');
   rt.stop();
   assert.equal(removed, 1, 'canal removido ao parar');
   console.log('ok 11 tempo real');
+}
+
+// 12. uma anotação recusada pelo servidor não trava as outras
+{
+  conflicts = 0;
+  await db.put({ id: 'grande', title: '', content: 'x'.repeat(MAX_CONTENT + 1), mood: null, created_at: now(), rev: 'g1', dirty: 1, deleted: false });
+  await db.put({ id: 'normal', title: '', content: 'texto normal', mood: null, created_at: now(), rev: 'n1', dirty: 1, deleted: false });
+  await sync.runNow();
+  assert.equal(server.get('normal')?.content, 'texto normal', 'a normal subiu');
+  assert.equal(server.get('grande'), undefined, 'a recusada não subiu');
+  assert.equal((await db.get('grande')).dirty, 1, 'a recusada continua guardada no aparelho');
+  assert.equal(last(), 'error');
+  await db.put({ ...(await db.get('grande')), content: 'agora menor', rev: 'g2' });
+  await sync.runNow();
+  assert.equal(server.get('grande').content, 'agora menor');
+  assert.equal(last(), 'synced');
+  console.log('ok 12 anotação com problema não trava as outras');
+}
+
+// 13. editar logo depois de enviar (antes de baixar de volta) não gera cópia falsa
+{
+  conflicts = 0;
+  await db.put({ id: 'f', title: '', content: 'v1', mood: null, created_at: now(), rev: 'f1', dirty: 1, deleted: false });
+  hookUpsert = async () => { await db.put({ ...(await db.get('f')), content: 'v2', rev: 'f2', dirty: 1 }); };
+  await sync.runNow();
+  await sync.runNow();
+  assert.equal(server.get('f').content, 'v2');
+  assert.equal(conflicts, 0, 'nenhuma cópia falsa');
+  assert.equal([...server.values()].filter((r) => /outro aparelho/.test(r.title || '')).length, 1, 'só a cópia do teste 4');
+  console.log('ok 13 sem cópias falsas');
+}
+
+// 14. anotação antiga sem "base" conhecida: não cria cópia (vence a última, como antes)
+{
+  conflicts = 0;
+  server.set('old', { id: 'old', title: '', content: 'servidor', mood: null, created_at: now(), updated_at: now(), deleted: false });
+  await db.put({ id: 'old', title: '', content: 'aparelho', mood: null, created_at: now(), rev: 'o1', dirty: 1, deleted: false });
+  await sync.runNow();
+  assert.equal(server.get('old').content, 'aparelho');
+  assert.equal(conflicts, 0);
+  console.log('ok 14 registros antigos');
 }
 console.log('TODOS OS TESTES PASSARAM');
 process.exit(0);

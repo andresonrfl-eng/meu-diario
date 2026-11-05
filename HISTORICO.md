@@ -6,8 +6,13 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.5.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.5.1'` em `sw.js`)
+- **Versão: 1.0 (final)** — pronta para uso diário (`APP_VERSION = '1.0 (final)'` em `js/app.js`,
+  `CACHE = 'diario-final-1.0'` em `sw.js`). A numeração foi "zerada" a pedido do usuário (antes ia até 1.5.1).
+  Próximas mudanças: `1.0.1`, `1.1`… e `CACHE = 'diario-final-1.0.1'` etc. (o nome do cache só precisa mudar).
 - **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
+- **Supabase acordado:** GitHub Actions `.github/workflows/manter-acordado.yml` chama `public.ping()` a cada 3 dias.
+- **Aviso de cópia de segurança** mensal no app (banner "Baixar cópia").
+- **Testes:** `npm test` = 14 cenários + simulação de 2 aparelhos (15 sementes × 600 operações). `SEEDS=60 npm test` para rodada longa.
 - **Lembrete diário: DESISTIDO** pelo usuário ("muito complexo") — removido do app e da nuvem na v1.5.1.
 - **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
@@ -28,13 +33,49 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 
 ### Ideias para o futuro (não feitas)
 - Criptografia de ponta a ponta (senha extra que nem o servidor conhece). Risco: esqueceu a senha = perdeu tudo.
-- Bloqueio do app com PIN/biometria.
-- Lembrete diário para escrever (notificação).
-- Gráfico do humor ao longo do tempo (útil para levar à psicóloga).
+- Digital/biometria além do PIN.
+- ~~Lembrete diário (notificação)~~ — usuário desistiu; não oferecer de novo.
+- ~~Gráfico de dor~~ — usuário não quer. Gráfico do humor / resumo da semana: "só se for de extra".
+- Bloquear cadastro de contas novas no Supabase (Authentication → Sign In / Providers → desligar
+  "Allow new users to sign up") — sugerido, aguardando OK do usuário.
 - Importar backup .json.
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 07/11/2026 — Revisão geral e VERSÃO FINAL 1.0
+Pedido: "deixar pronto para usar todo dia sem me preocupar" — revisão completa, testes de simulação, correções.
+
+**Bugs encontrados e corrigidos:**
+1. **Excluir não funcionava** (e "Sair"/"Esqueci o PIN" podiam travar): o diálogo de confirmação dependia só do
+   evento `close`, que em alguns Chromium não dispara depois do envio do `<form method="dialog">`. Agora
+   `confirmDialog` resolve pelo `submit` (com `submitter.value`), `cancel` (Esc) ou `close` — o que vier primeiro.
+2. **Edição em dois aparelhos ao mesmo tempo podia apagar texto** (vencia a última enviada). Agora, antes de
+   enviar, o `sync.js` confere no servidor se a anotação mudou desde a última versão conhecida
+   (`server_updated_at`, que o upsert devolve via `.select('id,updated_at')` e o `markClean` guarda); se mudou e o
+   texto é diferente, a versão do outro aparelho vira uma **anotação separada** "(versão de outro aparelho)" e o app
+   avisa com um toast. Registros antigos sem base conhecida seguem a regra antiga (sem cópias falsas).
+3. **Uma anotação recusada pelo servidor travava o envio de todas** (o lote de 100 é tudo-ou-nada). Agora, se o lote
+   falhar por erro que não é de rede, envia uma por uma; as recusadas ficam no aparelho e o status mostra erro.
+   Também: `maxlength=200000` no texto (limite do banco) e o ditado respeita esse limite.
+4. **"Esqueci o PIN" sem internet** podia cair no caminho "sem conta" e apagar anotações ainda não enviadas.
+   Agora, com sessão salva e sem conexão, só pede para conectar.
+5. Service worker guardava páginas com `?code=...` (links de confirmação) como cópias separadas → chave sem `?`.
+
+**Novidades:**
+- Aviso mensal de cópia de segurança (14 dias após a 1ª anotação, depois a cada 30 dias; "X" adia 3 dias).
+  Configurações mostram a data da última cópia.
+- `public.ping()` no banco (só devolve a hora) + GitHub Actions a cada 3 dias → o projeto grátis não é pausado.
+  O mesmo workflow faz um commit "batimento" se o repositório ficar 45 dias parado (o GitHub desliga agendamentos
+  após 60 dias sem atividade).
+- Supabase limpo: removidos pg_cron, pg_net e a função send-reminders. Security Advisor: 0 erros, 1 aviso
+  ("Leaked password protection" — só existe no plano pago).
+
+**Testes:** `tests/sync.test.mjs` (14 cenários) + `tests/two-devices.test.mjs` (dois aparelhos com bancos
+separados, 600 operações aleatórias: escrever, editar, excluir, cair internet, sincronizar fora de ordem;
+confere que celular = PC = servidor e que nenhuma versão escrita se perde). Rodado com 60 sementes: 60/60 ok.
+No navegador: criar/salvar/recarregar, busca sem acento, título com HTML (não executa), excluir/cancelar,
+aviso de cópia, PIN completo, celular e tema escuro.
 
 ## Sessão 1 (continuação) — 06/11/2026 — Lembrete removido (v1.5.1)
 - Na hora de configurar (colar a chave secreta e desligar "Verify JWT"), o usuário achou complexo demais e

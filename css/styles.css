@@ -562,7 +562,12 @@ button { cursor: pointer; -webkit-tap-highlight-color: transparent; }
   border-radius: 18px;
   font-size: .95rem;
 }
-.banner span { flex: 1; }
+.banner span { flex: 1; min-width: 0; }
+.banner .btn { flex-shrink: 0; }
+@media (max-width: 899px) {
+  .banner { margin: 0 14px 8px; flex-wrap: wrap; }
+  .banner span { flex-basis: calc(100% - 50px); }
+}
 
 .toast {
   position: fixed;

@@ -70,10 +70,26 @@ Faça o mesmo login no celular, tablet e computador.
 ```bash
 npm install     # só para os testes
 npm start       # abre em http://localhost:5173
-npm test        # testes da sincronização
+npm test        # testes da sincronização + simulação de 2 aparelhos
 ```
+
+## Manutenção automática (não precisa fazer nada)
+- **Banco sempre acordado:** o plano grátis do Supabase pausa o projeto após 7 dias sem uso. O GitHub
+  (aba **Actions → Manter o Supabase acordado**) dá um "toque" a cada 3 dias. Se um dia ele falhar, o GitHub
+  manda um e-mail; aí basta reativar o projeto em supabase.com/dashboard.
+- **Atualizações:** o app se atualiza sozinho quando há versão nova.
+- **Cópia de segurança:** uma vez por mês o app sugere baixar uma cópia (um toque).
+
+## Se algo der errado
+- **Aparece "Sem internet — salvo no aparelho":** tudo bem, o texto está guardado e sobe quando a conexão voltar.
+- **Aparece "Erro ao sincronizar" por muito tempo:** abra ⚙ → **Sincronizar agora**. Se continuar, o projeto do
+  Supabase pode ter sido pausado (reative no painel) — suas anotações continuam no aparelho.
+- **Uma anotação aparece duplicada com "(versão de outro aparelho)":** ela foi editada em dois aparelhos ao mesmo
+  tempo; o app guardou as duas versões para nada se perder. Junte o que quiser e exclua a que sobrar.
+- **Esqueceu o PIN:** na tela do PIN, "Esqueci o PIN" → sai da conta naquele aparelho; entre de novo com e-mail e senha.
+- **Esqueceu a senha:** na tela de login, digite o e-mail e toque em "Esqueci minha senha".
 
 ## Privacidade
 - O texto fica no seu aparelho (IndexedDB) e no seu projeto Supabase. Só você (logado) tem acesso — o acesso é bloqueado no próprio banco por RLS.
 - Ao excluir uma anotação, o texto é apagado também na nuvem.
-- Faça de vez em quando uma cópia em **Configurações → Cópia de segurança**.
+- Faça de vez em quando uma cópia em **Configurações → Cópia de segurança** (o app lembra você).

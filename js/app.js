@@ -6,7 +6,7 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 import { createLock, hasPin, clearPin, getLockDelay, setLockDelay } from './lock.js';
-const APP_VERSION = '1.5.1';
+const APP_VERSION = '1.0 (final)';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -24,6 +24,8 @@ const el = {
   banner: $('#banner'),
   bannerText: $('#banner-text'),
   bannerClose: $('#banner-close'),
+  bannerAction: $('#banner-action'),
+  backupLast: $('#backup-last'),
   btnNew: $('#btn-new'),
   search: $('#search'),
   list: $('#entry-list'),
@@ -136,9 +138,46 @@ function toast(msg, ms = 3500) {
   toastTimer = setTimeout(() => { el.toast.hidden = true; }, ms);
 }
 
-function showBanner(msg) {
+let bannerKind = null;
+let bannerOnAction = null;
+function showBanner(msg, { kind = 'info', action = null, onAction = null } = {}) {
   el.bannerText.textContent = msg;
+  bannerKind = kind;
+  bannerOnAction = onAction;
+  el.bannerAction.hidden = !action;
+  if (action) el.bannerAction.textContent = action;
   el.banner.hidden = false;
+}
+function hideBanner() {
+  el.banner.hidden = true;
+  if (bannerKind === 'backup') setPref('backupNagAt', Date.now());
+  bannerKind = null;
+  bannerOnAction = null;
+}
+
+// ---------- Lembrete de cópia de segurança ----------
+const DAY = 24 * 3600 * 1000;
+function renderBackupInfo() {
+  const t = Number(getPref('lastBackup', '0'));
+  el.backupLast.textContent = t
+    ? `Última cópia baixada neste aparelho: ${fmtDate.format(new Date(t))}.`
+    : 'Você ainda não baixou nenhuma cópia neste aparelho.';
+}
+function checkBackupReminder() {
+  if (!state.entries.size || lock.isLocked()) return;
+  if (!el.banner.hidden) return; // não cobre outro aviso
+  const now = Date.now();
+  const last = Number(getPref('lastBackup', '0'));
+  const nag = Number(getPref('backupNagAt', '0'));
+  if (now - nag < 3 * DAY) return; // fechou o aviso há pouco
+  const oldest = Math.min(...[...state.entries.values()].map((e) => Date.parse(e.created_at) || now));
+  const due = last ? now - last > 30 * DAY : now - oldest > 14 * DAY;
+  if (!due) return;
+  showBanner('💾 Que tal guardar uma cópia das suas anotações? Leva um toque e o arquivo fica no seu aparelho.', {
+    kind: 'backup',
+    action: 'Baixar cópia',
+    onAction: () => exportData('txt'),
+  });
 }
 
 function confirmDialog(title, text, okLabel = 'OK') {
@@ -147,10 +186,23 @@ function confirmDialog(title, text, okLabel = 'OK') {
     el.confirmText.textContent = text;
     el.confirmOk.textContent = okLabel;
     el.confirm.returnValue = '';
-    const onClose = () => {
+    // Não depende só do evento "close": em alguns navegadores ele não dispara depois do envio
+    // do formulário do diálogo (o botão "Excluir" parecia não fazer nada).
+    let done = false;
+    const finish = (ok) => {
+      if (done) return;
+      done = true;
+      el.confirm.removeEventListener('submit', onSubmit);
+      el.confirm.removeEventListener('cancel', onCancel);
       el.confirm.removeEventListener('close', onClose);
-      resolve(el.confirm.returnValue === 'ok');
+      if (el.confirm.open) el.confirm.close();
+      resolve(ok);
     };
+    const onSubmit = (ev) => { ev.preventDefault(); finish(ev.submitter?.value === 'ok'); };
+    const onCancel = () => finish(false);
+    const onClose = () => finish(el.confirm.returnValue === 'ok');
+    el.confirm.addEventListener('submit', onSubmit);
+    el.confirm.addEventListener('cancel', onCancel);
     el.confirm.addEventListener('close', onClose);
     el.confirm.showModal();
   });
@@ -502,6 +554,10 @@ function insertAtCursor(raw) {
   const end = ta.selectionEnd ?? start;
   const text = formatDictation(raw, ta.value.slice(0, start));
   if (!text) return;
+  if (ta.value.length - (end - start) + text.length > ta.maxLength && ta.maxLength > 0) {
+    toast('Esta anotação chegou ao tamanho máximo. Crie uma nova para continuar.', 6000);
+    return;
+  }
   ta.setRangeText(text, start, end, 'end');
   // mantém o final do texto visível
   if (ta.selectionEnd === ta.value.length) ta.scrollTop = ta.scrollHeight;
@@ -629,6 +685,9 @@ async function exportData(kind) {
     }).join('\n');
     download(`meu-diario-${stamp}.txt`, '﻿' + txt, 'text/plain;charset=utf-8');
   }
+  setPref('lastBackup', Date.now());
+  renderBackupInfo();
+  toast('Cópia baixada ✓ Guarde o arquivo num lugar seguro (ex.: Google Drive).', 5000);
 }
 
 // ---------- Conta / Supabase ----------
@@ -748,7 +807,16 @@ async function handleSession(session) {
     state.localOnly = false;
     setPref('localOnly', '0');
     hideAuth();
-    if (!state.sync) state.sync = createSync({ sb: state.sb, onStatus: setStatus, onRemoteChange });
+    if (!state.sync) {
+      state.sync = createSync({
+        sb: state.sb,
+        onStatus: setStatus,
+        onRemoteChange,
+        onConflict: (n) => toast(n > 1
+          ? `${n} anotações foram editadas em dois aparelhos ao mesmo tempo. Guardamos as duas versões de cada uma ("versão de outro aparelho").`
+          : 'Uma anotação foi editada em dois aparelhos ao mesmo tempo. Guardamos as duas versões ("versão de outro aparelho").', 8000),
+      });
+    }
     state.sync.start();
   } else {
     state.sync?.stop();
@@ -833,10 +901,23 @@ const lock = createLock({
     el.toast.hidden = true;
   },
   onForgot: forgotPin,
+  onUnlock: () => setTimeout(checkBackupReminder, 800),
 });
 
 async function forgotPin() {
+  // Tem conta salva neste aparelho, mas ainda não conectou (sem internet): não apagar nada.
+  let savedSession = false;
+  try { savedSession = !!localStorage.getItem('diario-auth'); } catch { /* ignore */ }
+  if (CONFIGURED && !state.user && savedSession) {
+    toast('Conecte-se à internet para recuperar o acesso. Suas anotações estão seguras.', 6000);
+    if (!state.sb) bootSupabase();
+    return;
+  }
   if (CONFIGURED && state.user) {
+    if (!navigator.onLine) {
+      toast('Conecte-se à internet para recuperar o acesso. Suas anotações estão seguras.', 6000);
+      return;
+    }
     const ok = await confirmDialog(
       'Esqueceu o PIN?',
       'Para criar um PIN novo, você vai sair da conta neste aparelho. Depois é só entrar de novo com seu e-mail e senha: suas anotações estão guardadas na nuvem e voltam sozinhas.',
@@ -907,6 +988,7 @@ document.addEventListener('visibilitychange', () => {
 function renderAccount() {
   el.appVersion.textContent = `Meu Diário · versão ${APP_VERSION}`;
   renderPin();
+  renderBackupInfo();
   el.btnSyncNow.hidden = !(CONFIGURED && state.user);
   el.btnLogout.hidden = !(CONFIGURED && state.user);
   el.btnLoginOpen.hidden = !(CONFIGURED && !state.user);
@@ -953,7 +1035,8 @@ function bindEvents() {
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flushSave(); });
   window.addEventListener('pagehide', () => { flushSave(); });
 
-  el.bannerClose.addEventListener('click', () => { el.banner.hidden = true; });
+  el.bannerClose.addEventListener('click', hideBanner);
+  el.bannerAction.addEventListener('click', () => { const fn = bannerOnAction; hideBanner(); fn?.(); });
 
   // Login
   el.tabLogin.addEventListener('click', () => setAuthMode('login'));
@@ -1052,6 +1135,8 @@ async function boot() {
     showBanner('⚠ Não foi possível abrir o armazenamento do aparelho. Se estiver em uma janela anônima, abra o app em uma janela normal.');
   }
   renderAccount();
+  // espera a primeira sincronização trazer as anotações antes de decidir
+  setTimeout(checkBackupReminder, 6000);
 
   if (!CONFIGURED) { setStatus('local'); return; }
   await bootSupabase();

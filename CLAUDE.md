@@ -12,10 +12,11 @@ no topo do HISTORICO.md** (data, o que mudou, por quê, pendências).
 
 ## Projeto
 PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o passo a passo.
-- `js/app.js` interface · `js/db.js` IndexedDB · `js/sync.js` sincronização · `js/voice.js` voz
+- `js/app.js` interface · `js/db.js` IndexedDB · `js/sync.js` sincronização · `js/voice.js` voz · `js/lock.js` PIN
 - `js/config.js` URL + chave pública do Supabase (vazio = modo só no aparelho)
-- `supabase/schema.sql` tabela `entries` + RLS + trigger (idempotente)
-- `tests/sync.test.mjs` testes da sincronização (`npm test`, usa fake-indexeddb)
+- `supabase/schema.sql` tabela `entries` + RLS + trigger + `ping()` (idempotente)
+- `.github/workflows/manter-acordado.yml` toque no banco a cada 3 dias (plano grátis pausa após 7 dias)
+- `npm test` = `tests/sync.test.mjs` (cenários) + `tests/two-devices.test.mjs` (simulação de 2 aparelhos)
 
 ## Regras importantes
 - **Sempre** que mudar qualquer arquivo do app, aumente `CACHE` em `sw.js` e `APP_VERSION` em `js/app.js`
@@ -27,4 +28,11 @@ PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o pass
 - Nunca colocar a chave `service_role`/`secret` do Supabase no código.
 - Sincronização: cada gravação local recebe um `rev` único; `markClean` só limpa se o `rev` não mudou.
   Não troque isso por contador numérico (gera colisão entre abas).
+- Conflitos: antes de enviar, o sync compara `server_updated_at` (base) com o servidor; se outro aparelho
+  mudou o texto, guarda a versão dele como anotação separada. Não remova isso (evita perder texto).
 - Rode `npm test` depois de mexer em `db.js` ou `sync.js`.
+- Diálogos de confirmação: não dependa só do evento `close` do `<dialog>` (não dispara em alguns navegadores);
+  use `confirmDialog` em `app.js`.
+- Ao mudar o desenho do ícone, mude também o NOME dos arquivos (PCs guardam o ícone pelo nome).
+- No Windows PowerShell 5.1 não use `Set-Content`/`Get-Content` para editar arquivos (estraga acentos).
+- O usuário desistiu do lembrete por notificação: não ofereça de novo sem ele pedir.
