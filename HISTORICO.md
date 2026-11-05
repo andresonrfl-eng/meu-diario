@@ -36,8 +36,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Digital/biometria além do PIN.
 - ~~Lembrete diário (notificação)~~ — usuário desistiu; não oferecer de novo.
 - ~~Gráfico de dor~~ — usuário não quer. Gráfico do humor / resumo da semana: "só se for de extra".
-- Bloquear cadastro de contas novas no Supabase (Authentication → Sign In / Providers → desligar
-  "Allow new users to sign up") — sugerido, aguardando OK do usuário.
+- Bloquear cadastro de contas novas no Supabase — sugerido; o usuário disse "deixa tá bom" (07/11/2026).
+  Fica como está (cadastro aberto; estranhos não veem nada por causa do RLS). Não insistir.
 - Importar backup .json.
 - Exportar em PDF para mostrar na consulta.
 
