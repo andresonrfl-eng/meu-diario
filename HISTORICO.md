@@ -40,6 +40,11 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Solução: arquivos renomeados para `icons/sol.svg`, `sol-192.png`, `sol-512.png`, `sol-maskable-512.png`
   (manifest, index.html, sw.js e `tools/make-icons.mjs`). **Regra: ao mudar o desenho do ícone, mude também o
   nome dos arquivos**, senão os PCs continuam com o antigo.
+- Mesmo assim o PC mostrava o antigo. Diagnóstico: o Chrome JÁ tinha o ícone novo
+  (`...\Chrome\User Data\Default\Web Applications\Manifest Resources\hbknjjdmdbpahgnpoeljfolknmmpjmkm\Icons`
+  e o `.ico` em `_crx_hbknjjdmdbpahgnpoeljfolknmmpjmkm\Meu Diário.ico`); os atalhos (Área de Trabalho e
+  Menu Iniciar → Apps do Chrome) apontam para esse `.ico`. O que estava velho era o **cache de ícones do
+  Windows** (mesmo caminho de arquivo). Atualizado com `ie4uinit.exe -show`; se não bastar, reiniciar o PC.
 - Cuidado no Windows PowerShell 5.1: `Get-Content`/`Set-Content` estragam acentos (dupla codificação UTF-8).
   Para editar arquivos, use as ferramentas de edição ou Node, não Set-Content.
 
