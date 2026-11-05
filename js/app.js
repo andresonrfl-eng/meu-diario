@@ -6,7 +6,7 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.2.0';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -29,6 +29,8 @@ const el = {
   list: $('#entry-list'),
   emptyList: $('#empty-list'),
   editorEmpty: $('#editor-empty'),
+  greet: $('#greet'),
+  greetIcon: $('#greet-icon'),
   editor: $('#editor'),
   date: $('#entry-date'),
   saveState: $('#save-state'),
@@ -206,6 +208,7 @@ function renderList() {
     btn.type = 'button';
     btn.className = 'entry-item';
     btn.dataset.id = e.id;
+    if (e.mood && MOODS[e.mood]) btn.dataset.mood = String(e.mood);
     if (e.id === state.currentId) btn.setAttribute('aria-current', 'true');
 
     const title = document.createElement('div');
@@ -340,6 +343,7 @@ function closeEditor() {
   state.draft = null;
   el.editor.hidden = true;
   el.editorEmpty.hidden = false;
+  renderGreeting();
   showListView();
   renderList();
 }
@@ -573,11 +577,22 @@ function currentFont() {
   return Number.isFinite(v) ? v : 19;
 }
 function applyTheme(t) {
-  if (t === 'light' || t === 'dark') document.documentElement.setAttribute('data-theme', t);
-  else document.documentElement.removeAttribute('data-theme');
-  setPref('theme', t);
-  const dark = t === 'dark' || (t !== 'light' && window.matchMedia('(prefers-color-scheme: dark)').matches);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#20222a' : '#5865a8');
+  if (t !== 'light' && t !== 'auto') t = 'dark';
+  document.documentElement.setAttribute('data-theme', t);
+  setPref('theme2', t);
+  const dark = t === 'dark' || (t === 'auto' && !window.matchMedia('(prefers-color-scheme: light)').matches);
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', dark ? '#10152a' : '#f6f1ea');
+}
+
+// Saudação da tela inicial conforme a hora do dia.
+function renderGreeting() {
+  const h = new Date().getHours();
+  let greet = 'Boa noite';
+  let icon = '☾';
+  if (h >= 5 && h < 12) { greet = 'Bom dia'; icon = '☀'; }
+  else if (h >= 12 && h < 18) { greet = 'Boa tarde'; icon = '✦'; }
+  el.greet.textContent = greet;
+  el.greetIcon.textContent = icon;
 }
 
 // ---------- Exportar ----------
@@ -895,9 +910,12 @@ function registerServiceWorker() {
 
 async function boot() {
   el.fontValue.textContent = String(applyFont(currentFont()));
-  const theme = getPref('theme', 'auto');
+  const theme = getPref('theme2', 'dark');
   el.themeSelect.value = theme;
-  applyTheme(theme);
+  if (!el.themeSelect.value) el.themeSelect.value = 'dark';
+  applyTheme(el.themeSelect.value);
+  renderGreeting();
+  window.matchMedia('(prefers-color-scheme: light)').addEventListener?.('change', () => applyTheme(el.themeSelect.value));
   el.pauseSelect.value = getPref('pause', '20');
   if (!el.pauseSelect.value) el.pauseSelect.value = '20';
 

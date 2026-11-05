@@ -6,7 +6,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.1.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.1.0'` em `sw.js`)
+- **Versão:** 1.2.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.2.0'` em `sw.js`)
+- **Visual:** "Noite aconchegante" (escolhido pelo usuário) — tema padrão escuro; claro = "Amanhecer".
 - **App:** publicado e conectado à nuvem.
 - **Nuvem (Supabase):** ✅ projeto "meu diario" (ref `fusyhpwqspbidtarkxbe`, região us-east-1, plano Free).
   Schema aplicado; Site URL = endereço do Pages; Redirect URLs = Pages/** e localhost:5173/**.
@@ -30,6 +31,20 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 05/11/2026 — Novo visual "Noite aconchegante" (v1.2.0)
+- Usuário achou o visual genérico; entre 3 propostas (caderno de papel / calmo e natural / noite aconchegante)
+  escolheu **Noite aconchegante**.
+- `css/styles.css` reescrito: céu azul-noite com brilhos suaves e estrelas (só CSS), âmbar `#f0b45a` como
+  destaque e lilás `#a99cf0` para seleção/foco; cartões translúcidos; botões em pílula; humor com brilho.
+  Cartões da lista com faixa colorida conforme o humor (`data-mood`). Tema claro "Amanhecer" (creme/lavanda).
+- Fontes pelo jsDelivr (versões fixas, `@fontsource-variable`): **Fraunces** (títulos), **Lora** (texto do diário),
+  **Nunito** (interface). CSP `font-src` liberado para jsdelivr; o service worker guarda as fontes (offline).
+- Tema: padrão agora é "dark" (Noite). Preferência mudou de chave para `diario.theme2` (para todos começarem no
+  visual novo); opções: Noite / Amanhecer / Seguir o aparelho (`data-theme="auto"`).
+- Tela inicial com saudação pela hora (Bom dia/Boa tarde/Boa noite + ícone).
+- Ícone novo: lua crescente âmbar com estrelas lilás (`icons/icon.svg` + `tools/make-icons.mjs`).
+- Conferido no navegador: PC e celular, Noite e Amanhecer, configurações; sem erros no console.
 
 ## Sessão 1 (continuação) — 05/11/2026 — Sincronização em tempo real (v1.1.0)
 - Usuário testou: sincronização entre aparelhos ✅ e ditado no celular ✅. Pediu que fosse em tempo real

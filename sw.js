@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-v1.1.0';
+const CACHE = 'diario-v1.2.0';
 const SHELL = [
   './',
   './index.html',
@@ -58,7 +58,7 @@ async function networkFirst(request) {
   }
 }
 
-// Biblioteca do Supabase (endereço com versão fixa => nunca muda): cache primeiro.
+// Biblioteca do Supabase e fontes (endereço com versão fixa => nunca muda): cache primeiro.
 async function cacheFirst(request) {
   const cache = await caches.open(CACHE);
   const cached = await cache.match(request);
@@ -74,7 +74,8 @@ self.addEventListener('fetch', (event) => {
   const url = new URL(req.url);
   if (url.origin === self.location.origin) {
     event.respondWith(networkFirst(req));
-  } else if (url.hostname === 'cdn.jsdelivr.net' && url.pathname.startsWith('/npm/@supabase/')) {
+  } else if (url.hostname === 'cdn.jsdelivr.net' &&
+    (url.pathname.startsWith('/npm/@supabase/') || url.pathname.startsWith('/npm/@fontsource-variable/'))) {
     event.respondWith(cacheFirst(req));
   }
   // Demais (API do Supabase): não intercepta — dados sempre vão direto para a nuvem.

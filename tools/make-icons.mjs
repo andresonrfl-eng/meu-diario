@@ -8,11 +8,17 @@ const OUT = join(dirname(fileURLToPath(import.meta.url)), '..', 'icons');
 mkdirSync(OUT, { recursive: true });
 
 const hex = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
-const BG = hex('#5865a8');
-const PAGE = hex('#ffffff');
-const SPINE = hex('#dfe2f3');
-const LINE1 = hex('#5865a8');
-const LINE2 = hex('#8f9be0');
+// Visual "Noite aconchegante": céu azul-noite, lua crescente âmbar e estrelas lilás.
+const BG_TOP = hex('#1d2547');
+const BG_BOTTOM = hex('#0e1226');
+const MOON = hex('#f0b45a');
+const STAR = hex('#c9c0ff');
+const inCircle = (x, y, cx, cy, r) => (x - cx) ** 2 + (y - cy) ** 2 <= r * r;
+// estrela de 4 pontas (losango côncavo)
+const inStar = (x, y, cx, cy, r) => {
+  const dx = Math.abs(x - cx) / r, dy = Math.abs(y - cy) / r;
+  return Math.sqrt(dx) + Math.sqrt(dy) <= 1;
+};
 
 // Coordenadas no espaço 512x512 (mesmo desenho do icon.svg)
 function insideRoundRect(x, y, rx, ry, w, h, r) {
@@ -27,15 +33,13 @@ function colorAt(x, y, { rounded, scale }) {
   const sx = 256 + (x - 256) / scale;
   const sy = 256 + (y - 256) / scale;
   if (rounded && !insideRoundRect(x, y, 0, 0, 512, 512, 112)) return null;
-  const shapes = [
-    [146, 106, 232, 300, 28, PAGE],
-    [146, 106, 40, 300, 14, SPINE],
-    [214, 170, 128, 16, 8, LINE1],
-    [214, 222, 128, 16, 8, LINE2],
-    [214, 274, 90, 16, 8, LINE2],
-  ];
-  let c = BG;
-  for (const [rx, ry, w, h, r, col] of shapes) if (insideRoundRect(sx, sy, rx, ry, w, h, r)) c = col;
+  const t = Math.min(1, Math.max(0, y / 512));
+  let c = BG_TOP.map((v, i) => Math.round(v + (BG_BOTTOM[i] - v) * t));
+  // lua crescente: círculo âmbar menos um círculo deslocado
+  if (inCircle(sx, sy, 236, 276, 150) && !inCircle(sx, sy, 300, 214, 128)) c = MOON;
+  if (inStar(sx, sy, 362, 330, 46)) c = STAR;
+  if (inStar(sx, sy, 404, 196, 24)) c = STAR;
+  if (inStar(sx, sy, 150, 128, 20)) c = STAR;
   return c;
 }
 

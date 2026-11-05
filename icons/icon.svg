@@ -1,8 +1,17 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#5865a8"/>
-  <rect x="146" y="106" width="232" height="300" rx="28" fill="#ffffff"/>
-  <rect x="146" y="106" width="40" height="300" rx="14" fill="#dfe2f3"/>
-  <rect x="214" y="170" width="128" height="16" rx="8" fill="#5865a8"/>
-  <rect x="214" y="222" width="128" height="16" rx="8" fill="#8f9be0"/>
-  <rect x="214" y="274" width="90" height="16" rx="8" fill="#8f9be0"/>
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1d2547"/>
+      <stop offset="1" stop-color="#0e1226"/>
+    </linearGradient>
+    <mask id="crescent">
+      <circle cx="236" cy="276" r="150" fill="#fff"/>
+      <circle cx="300" cy="214" r="128" fill="#000"/>
+    </mask>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#sky)"/>
+  <rect width="512" height="512" fill="#f0b45a" mask="url(#crescent)"/>
+  <path fill="#c9c0ff" d="M362 284 Q362 330 408 330 Q362 330 362 376 Q362 330 316 330 Q362 330 362 284Z"/>
+  <path fill="#c9c0ff" d="M404 172 Q404 196 428 196 Q404 196 404 220 Q404 196 380 196 Q404 196 404 172Z"/>
+  <path fill="#c9c0ff" d="M150 108 Q150 128 170 128 Q150 128 150 148 Q150 128 130 128 Q150 128 150 108Z"/>
 </svg>
