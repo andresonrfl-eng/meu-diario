@@ -6,7 +6,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.3.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.1'` em `sw.js`)
+- **Versão:** 1.3.2 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.3.2'` em `sw.js`)
 - **Símbolo:** "sol no horizonte" = **respiro** (escolhido pelo usuário; respiro a qualquer hora, não só no fim do dia).
 - **Visual:** "Calmo e natural" (sálvia/areia/pêssego) — tema padrão claro "Dia"; escuro = "Noite" (floresta).
   O usuário NÃO gostou do "Noite aconchegante" (v1.2.0), que foi substituído.
@@ -33,6 +33,15 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 05/11/2026 — Ícone novo no PC (v1.3.2)
+- No celular, reinstalar trocou o ícone; no PC (Windows) **não**, mesmo desinstalando — o navegador/Windows
+  reaproveita o ícone guardado pelo mesmo endereço de arquivo.
+- Solução: arquivos renomeados para `icons/sol.svg`, `sol-192.png`, `sol-512.png`, `sol-maskable-512.png`
+  (manifest, index.html, sw.js e `tools/make-icons.mjs`). **Regra: ao mudar o desenho do ícone, mude também o
+  nome dos arquivos**, senão os PCs continuam com o antigo.
+- Cuidado no Windows PowerShell 5.1: `Get-Content`/`Set-Content` estragam acentos (dupla codificação UTF-8).
+  Para editar arquivos, use as ferramentas de edição ou Node, não Set-Content.
 
 ## Sessão 1 (continuação) — 05/11/2026 — Símbolo "sol no horizonte" (v1.3.1)
 - Usuário perguntou por que uma planta; mostrei opções dentro do tema e ele escolheu o **sol no horizonte**,

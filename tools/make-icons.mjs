@@ -24,7 +24,7 @@ const inBar = (x, y, x1, x2, cy, t) => {
   return (x - px) ** 2 + (y - cy) ** 2 <= r * r;
 };
 
-// Coordenadas no espaço 512x512 (mesmo desenho do icon.svg)
+// Coordenadas no espaço 512x512 (mesmo desenho do sol.svg)
 function insideRoundRect(x, y, rx, ry, w, h, r) {
   if (x < rx || y < ry || x > rx + w || y > ry + h) return false;
   const cx = Math.min(Math.max(x, rx + r), rx + w - r);
@@ -101,7 +101,7 @@ function png(w, h, raw) {
   ]);
 }
 
-writeFileSync(join(OUT, 'icon-192.png'), render(192, { rounded: true, scale: 1 }));
-writeFileSync(join(OUT, 'icon-512.png'), render(512, { rounded: true, scale: 1 }));
-writeFileSync(join(OUT, 'icon-maskable-512.png'), render(512, { rounded: false, scale: 0.8 }));
+writeFileSync(join(OUT, 'sol-192.png'), render(192, { rounded: true, scale: 1 }));
+writeFileSync(join(OUT, 'sol-512.png'), render(512, { rounded: true, scale: 1 }));
+writeFileSync(join(OUT, 'sol-maskable-512.png'), render(512, { rounded: false, scale: 0.8 }));
 console.log('Ícones gerados em', OUT);
