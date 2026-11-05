@@ -45,6 +45,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
   Fontes: Nunito (interface e títulos) + Lora (texto do diário); Fraunces removida.
 - Tema: chave `diario.theme3`, padrão "light" (Dia); opções Dia / Noite (floresta escura) / Seguir o aparelho.
 - Ícone: folha cor de areia com sol pêssego em fundo sálvia. Saudação com 🌤️/🌿/🌙.
+- ✅ Usuário confirmou: a atualização chegou nos aparelhos dele e **gostou do visual** (manter este estilo).
 
 ## Sessão 1 (continuação) — 05/11/2026 — Novo visual "Noite aconchegante" (v1.2.0) — substituído na v1.3.0
 - Usuário achou o visual genérico; entre 3 propostas (caderno de papel / calmo e natural / noite aconchegante)
