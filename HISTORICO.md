@@ -6,7 +6,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão:** 1.0.1 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.0.1'` em `sw.js`)
+- **Versão:** 1.1.0 (`APP_VERSION` em `js/app.js`, `CACHE = 'diario-v1.1.0'` em `sw.js`)
 - **App:** publicado e conectado à nuvem.
 - **Nuvem (Supabase):** ✅ projeto "meu diario" (ref `fusyhpwqspbidtarkxbe`, região us-east-1, plano Free).
   Schema aplicado; Site URL = endereço do Pages; Redirect URLs = Pages/** e localhost:5173/**.
@@ -19,7 +19,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 1. ~~Login no GitHub CLI → criar repositório e ativar GitHub Pages.~~ ✅ feito
 2. ~~Projeto Supabase + schema + URLs + config.js~~ ✅ feito
 3. ~~Usuário criar a conta no app e confirmar o e-mail.~~ ✅ feito em 05/11/2026 — login funcionou.
-4. Testar login, sincronização real entre dois aparelhos, ditado no celular do usuário.
+4. ~~Testar sincronização e ditado~~ ✅ (falta confirmar o tempo real nos aparelhos do usuário). Itens originais: login, sincronização real entre dois aparelhos, ditado no celular do usuário.
 
 ### Ideias para o futuro (não feitas)
 - Criptografia de ponta a ponta (senha extra que nem o servidor conhece). Risco: esqueceu a senha = perdeu tudo.
@@ -30,6 +30,16 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 1 (continuação) — 05/11/2026 — Sincronização em tempo real (v1.1.0)
+- Usuário testou: sincronização entre aparelhos ✅ e ditado no celular ✅. Pediu que fosse em tempo real
+  (antes dependia do timer de 60 s ou de reabrir o app).
+- Supabase: tabela `entries` adicionada à publicação `supabase_realtime` (também no `schema.sql`, idempotente).
+- `js/sync.js`: assina `postgres_changes` da tabela; cada aviso só agenda uma sincronização normal (400 ms) —
+  o pull continua sendo a única fonte de verdade. Ao (re)conectar o canal, sincroniza também. `stop()` remove o canal.
+  O RLS vale para o Realtime: cada usuário só recebe avisos das próprias linhas.
+- Testado: conexão Realtime com a chave publishable aceita; novo teste 11 em `tests/sync.test.mjs` (11/11 passando).
+- Atraso esperado: ~2–3 s (700 ms para salvar + 1,5 s para enviar + aviso + baixar).
 
 ## Sessão 1 (continuação) — 05/11/2026 — Nuvem conectada (v1.0.1)
 - Usuário criou o projeto Supabase (região us-east-1, não São Paulo — funciona igual, só um pouco mais de latência).

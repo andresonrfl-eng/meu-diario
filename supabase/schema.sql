@@ -78,3 +78,18 @@ create policy "entries_delete_own" on public.entries
 -- Visitantes não autenticados não têm acesso algum.
 revoke all on public.entries from anon;
 grant select, insert, update, delete on public.entries to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Tempo real: avisa os outros aparelhos logo que algo muda.
+-- O Realtime respeita o RLS: cada pessoa só recebe avisos das próprias anotações.
+-- ---------------------------------------------------------------------
+do $$
+begin
+  if not exists (
+    select 1 from pg_publication_tables
+    where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'entries'
+  ) then
+    alter publication supabase_realtime add table public.entries;
+  end if;
+end;
+$$;

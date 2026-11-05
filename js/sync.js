@@ -102,6 +102,32 @@ export function createSync({ sb, onStatus, onRemoteChange }) {
   const onOffline = () => onStatus('offline');
   const onVisible = () => { if (document.visibilityState === 'visible') schedule(300); };
 
+  // Tempo real: o Supabase avisa quando algo muda na tabela (só as linhas do próprio
+  // usuário, por causa do RLS). O aviso só dispara uma sincronização normal — os dados
+  // continuam vindo pelo pull, que é a única fonte de verdade.
+  let channel = null;
+  function subscribeRealtime() {
+    if (channel || typeof sb.channel !== 'function') return;
+    try {
+      channel = sb
+        .channel('entries-changes')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'entries' }, () => schedule(400))
+        .subscribe((status) => {
+          // Ao (re)conectar, sincroniza para pegar o que mudou enquanto estava desconectado.
+          if (status === 'SUBSCRIBED') schedule(300);
+        });
+    } catch (e) {
+      console.warn('Tempo real indisponível:', e);
+      channel = null;
+    }
+  }
+  function unsubscribeRealtime() {
+    if (!channel) return;
+    const ch = channel;
+    channel = null;
+    try { sb.removeChannel(ch); } catch { /* ignore */ }
+  }
+
   function start() {
     if (started) return;
     started = true;
@@ -109,6 +135,7 @@ export function createSync({ sb, onStatus, onRemoteChange }) {
     window.addEventListener('offline', onOffline);
     document.addEventListener('visibilitychange', onVisible);
     interval = setInterval(() => { if (document.visibilityState === 'visible') run(); }, 60 * 1000);
+    subscribeRealtime();
     run();
   }
 
@@ -117,6 +144,7 @@ export function createSync({ sb, onStatus, onRemoteChange }) {
     again = false;
     clearTimeout(timer);
     clearInterval(interval);
+    unsubscribeRealtime();
     window.removeEventListener('online', onOnline);
     window.removeEventListener('offline', onOffline);
     document.removeEventListener('visibilitychange', onVisible);

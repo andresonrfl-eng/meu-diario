@@ -143,5 +143,29 @@ await db.clearAll();
 assert.equal((await db.getAll()).length, 0);
 assert.equal(await db.getMeta('cursor'), null);
 console.log('ok 10 limpar');
+
+// 11. tempo real: aviso do Supabase dispara uma sincronização; stop() remove o canal
+{
+  let handler = null; let removed = 0;
+  const ch = {
+    on(type, filter, cb) { assert.equal(type, 'postgres_changes'); assert.equal(filter.table, 'entries'); handler = cb; return ch; },
+    subscribe(cb) { cb('SUBSCRIBED'); return ch; },
+  };
+  const sbRt = { from: () => builder(), channel: () => ch, removeChannel: (c) => { assert.equal(c, ch); removed++; } };
+  const rtRemote = [];
+  const rt = createSync({ sb: sbRt, onStatus: () => {}, onRemoteChange: (ids) => rtRemote.push(...ids) });
+  rt.start();
+  await rt.runNow();
+  assert.ok(handler, 'assinou o canal');
+  server.set('rt1', { id: 'rt1', title: '', content: 'chegou na hora', mood: null, created_at: now(), updated_at: now(), deleted: false });
+  handler({ eventType: 'INSERT' });
+  await new Promise((r) => setTimeout(r, 700));
+  await rt.runNow();
+  assert.equal((await db.get('rt1')).content, 'chegou na hora');
+  assert.ok(rtRemote.includes('rt1'));
+  rt.stop();
+  assert.equal(removed, 1, 'canal removido ao parar');
+  console.log('ok 11 tempo real');
+}
 console.log('TODOS OS TESTES PASSARAM');
 process.exit(0);
