@@ -13,6 +13,7 @@ no topo do HISTORICO.md** (data, o que mudou, por quê, pendências).
 ## Projeto
 PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o passo a passo.
 - `js/app.js` interface · `js/db.js` IndexedDB · `js/sync.js` sincronização · `js/voice.js` voz · `js/lock.js` PIN
+- `js/ai.js` IA local (pasta, worker, ditado Whisper) · `js/ai-worker.js` modelos · `js/ai-text.js` regras de texto da IA · `js/mic-worklet.js` microfone
 - `js/config.js` URL + chave pública do Supabase (vazio = modo só no aparelho)
 - `supabase/schema.sql` tabela `entries` + RLS + trigger + `ping()` (idempotente)
 - `.github/workflows/manter-acordado.yml` toque no banco a cada 3 dias (plano grátis pausa após 7 dias)
@@ -36,3 +37,5 @@ PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o pass
 - Ao mudar o desenho do ícone, mude também o NOME dos arquivos (PCs guardam o ícone pelo nome).
 - No Windows PowerShell 5.1 não use `Set-Content`/`Get-Content` para editar arquivos (estraga acentos).
 - O usuário desistiu do lembrete por notificação: não ofereça de novo sem ele pedir.
+- IA local: modelos só na pasta escolhida pelo usuário (`D:\MeuDiario-IA` neste PC), nunca no cache do navegador (disco C: cheio).
+  Mantenha `isSafeCorrection` e a confirmação antes de aplicar: a IA não pode alterar o texto sem o usuário ver.

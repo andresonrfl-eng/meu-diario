@@ -6,9 +6,10 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.0 (final)** — pronta para uso diário (`APP_VERSION = '1.0 (final)'` em `js/app.js`,
-  `CACHE = 'diario-final-1.0'` em `sw.js`). A numeração foi "zerada" a pedido do usuário (antes ia até 1.5.1).
-  Próximas mudanças: `1.0.1`, `1.1`… e `CACHE = 'diario-final-1.0.1'` etc. (o nome do cache só precisa mudar).
+- **Versão: 1.1** (`APP_VERSION = '1.1'` em `js/app.js`, `CACHE = 'diario-final-1.1'` em `sw.js`).
+  A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
+- **IA local no PC** (1.1): Whisper (ditado) + Gemma 4 (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
+  (3,6 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
 - **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
 - **Supabase acordado:** GitHub Actions `.github/workflows/manter-acordado.yml` chama `public.ping()` a cada 3 dias.
 - **Aviso de cópia de segurança** mensal no app (banner "Baixar cópia").
@@ -42,6 +43,36 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 2 — 09/11/2026 — Tela cheia, voz com Whisper e correção com IA (v1.1)
+Pedido: esconder a barra lateral, um bom modo de voz no PC com transcrição e uma IA que corrija ortografia e
+gramática. O usuário quis uma IA **boa e gratuita** e pediu que os downloads fossem para o **disco D:** (C: sem espaço).
+
+**Barra lateral:** botão ☰ no topo ou `Ctrl+B` (só no computador); a preferência fica em `diario.focus`. Com a lista
+escondida, o editor ocupa toda a largura e aparece "Escrever agora" no topo.
+
+**Por que IA local:** Gemini grátis permite revisão humana do conteúdo (termos de mar/2026) e, no Groq, não ficou
+confirmado que os dados não são usados para treino — ruim para um diário terapêutico. A IA embutida do Chrome não tem
+português confirmado. O PC do usuário (RTX 5060 Ti 8 GB, 16 GB RAM) roda tudo localmente, sem chave e sem custo.
+
+**Como funciona:**
+- `js/ai-worker.js` (worker): Transformers.js 4.3.1 pelo jsDelivr, WebGPU, modelos com revisão fixa:
+  `onnx-community/whisper-small` e `onnx-community/gemma-4-E2B-it-ONNX` (q4f16).
+- Modelos numa pasta escolhida pelo usuário (File System Access; o identificador fica no IndexedDB `diario-ia`), por
+  `env.customCache`. `useBrowserCache`/`useWasmCache` desligados: o Cache do navegador ficaria no C:. Sem pasta, o worker
+  recusa (`sem-pasta`). Layout: `<pasta>/<repo>/<arquivo>`, igual ao que foi baixado em `D:\MeuDiario-IA`.
+- `js/ai.js`: pasta, cliente do worker (fecha após 10 min sem uso para liberar a placa de vídeo) e ditado: microfone a
+  16 kHz (`js/mic-worklet.js`), corta por silêncio (800 ms) ou 25 s. Dizer "parar ditado" desliga.
+- `js/ai-text.js` (testado em `tests/ai-text.test.mjs`): divide o texto, compara antes/depois e **recusa respostas que não
+  sejam o mesmo texto** (`isSafeCorrection`), porque o Gemma obedeceu a "escreva um poema" no teste. Filtra frases inventadas pelo Whisper.
+- Corrigir nunca altera direto: mostra riscado/destaque e só aplica com confirmação. Com seleção, corrige só a seleção.
+
+**Testado neste PC:** áudio de 12 s transcrito sem erros em <4 s; Gemma carrega em ~11 s e revisa parágrafo longo em ~6 s;
+desabafo com perguntas foi só revisado. Tela real ponta a ponta com microfone simulado e o fluxo Corrigir (aplicar e manter);
+gravação e leitura da pasta testadas numa pasta temporária; celular sem mudanças; `npm test` ok.
+
+**Não testado:** a janela nativa de escolher pasta e o microfone real (exigem a pessoa). Na 1ª vez no app, escolher
+`D:\MeuDiario-IA`: os modelos já estão lá. Cuidado: `D:\MeuDiario-IA` fica fora do repositório.
 
 ## Sessão 1 (continuação) — 07/11/2026 — Revisão geral e VERSÃO FINAL 1.0
 Pedido: "deixar pronto para usar todo dia sem me preocupar" — revisão completa, testes de simulação, correções.

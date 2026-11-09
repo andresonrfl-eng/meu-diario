@@ -22,7 +22,9 @@
   <div id="app" class="app">
     <header class="topbar">
       <button id="btn-back" class="icon-btn back-btn" type="button" aria-label="Voltar para a lista">←</button>
+      <button id="btn-sidebar" class="icon-btn sidebar-btn" type="button" aria-pressed="false" aria-label="Esconder a lista de anotações" title="Esconder a lista (Ctrl+B)">☰</button>
       <h1 class="brand"><span class="brand-mark" aria-hidden="true"><svg class="mark" viewBox="0 0 24 24"><path class="mark-sun" d="M6.2 12.6a5.8 5.8 0 0 1 11.6 0z"/><path class="mark-line" d="M4 14.8h16M7.2 17.8h9.6"/></svg></span>Meu Diário</h1>
+      <button id="btn-new-top" class="btn small primary new-top" type="button">＋ Escrever agora</button>
       <span id="sync-status" class="sync-status" role="status" aria-live="polite"></span>
       <button id="btn-settings" class="icon-btn" type="button" aria-label="Configurações" title="Configurações">⚙</button>
     </header>
@@ -71,6 +73,7 @@
           <div class="editor-actions">
             <button id="btn-voice" class="btn accent" type="button" aria-pressed="false">🎤 Ditar</button>
             <button id="btn-speak" class="btn" type="button" aria-pressed="false">🔊 Ouvir</button>
+            <button id="btn-correct" class="btn" type="button" title="Corrige ortografia e gramática. Se houver texto selecionado, corrige só a seleção." hidden>✨ Corrigir</button>
             <span class="spacer"></span>
             <button id="btn-delete" class="btn danger" type="button">Excluir</button>
           </div>
@@ -203,6 +206,21 @@
         </label>
       </section>
 
+      <section id="ai-section" class="settings-section" hidden>
+        <h3>Voz e IA neste computador</h3>
+        <p id="ai-text" class="muted small"></p>
+        <div class="row-wrap">
+          <button id="btn-ai-folder" class="btn" type="button">Escolher pasta</button>
+        </div>
+        <label class="setting-row">
+          <span>Ditado</span>
+          <select id="voice-engine" class="input select">
+            <option value="whisper">Whisper (neste computador)</option>
+            <option value="browser">Ditado do navegador</option>
+          </select>
+        </label>
+      </section>
+
       <section class="settings-section">
         <h3>Cópia de segurança</h3>
         <p class="muted small">Baixe todas as suas anotações em um arquivo. O app lembra você uma vez por mês.</p>
@@ -227,6 +245,19 @@
       </label>
       <p id="recovery-msg" class="auth-msg" role="alert" hidden></p>
       <button class="btn primary block" type="submit">Salvar nova senha</button>
+    </form>
+  </dialog>
+
+  <!-- Revisão da correção feita pela IA -->
+  <dialog id="correct-dialog" class="dialog wide" aria-labelledby="correct-title">
+    <form method="dialog" class="dialog-inner">
+      <h2 id="correct-title">Revisar correções</h2>
+      <p id="correct-note" class="muted small"></p>
+      <div id="correct-preview" class="correct-preview"></div>
+      <div class="row-wrap end">
+        <button class="btn" value="cancel">Manter como estava</button>
+        <button class="btn primary" value="ok">Aplicar correções</button>
+      </div>
     </form>
   </dialog>
 

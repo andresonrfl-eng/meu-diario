@@ -10,6 +10,8 @@ Foi pensado para quem precisa **poupar o pescoço** (síndrome dolorosa miofasci
 - **🔊 Ouvir**: o app lê a anotação em voz alta, sem precisar olhar para a tela.
 - **Texto grande** e ajustável (A− / A+), tema claro/escuro.
 - **Lembrete de pausa** opcional (a cada 15/20/30/45 min de escrita).
+- **Tela cheia** no computador: ☰ ou `Ctrl+B` esconde a lista de anotações.
+- **IA no próprio computador** (PC com placa de vídeo compatível): ditado com Whisper e botão **✨ Corrigir**, que mostra o antes e depois. Sua voz e seu texto não saem da máquina; os modelos (3,6 GB) ficam numa pasta que você escolhe.
 
 Outros recursos:
 

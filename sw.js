@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-final-1.0';
+const CACHE = 'diario-final-1.1';
 const SHELL = [
   './',
   './index.html',
@@ -11,6 +11,10 @@ const SHELL = [
   './js/sync.js',
   './js/voice.js',
   './js/lock.js',
+  './js/ai.js',
+  './js/ai-text.js',
+  './js/ai-worker.js',
+  './js/mic-worklet.js',
   './js/config.js',
   './manifest.webmanifest',
   './icons/sol.svg',
@@ -83,7 +87,8 @@ self.addEventListener('fetch', (event) => {
   if (url.origin === self.location.origin) {
     event.respondWith(networkFirst(req));
   } else if (url.hostname === 'cdn.jsdelivr.net' &&
-    (url.pathname.startsWith('/npm/@supabase/') || url.pathname.startsWith('/npm/@fontsource-variable/'))) {
+    (url.pathname.startsWith('/npm/@supabase/') || url.pathname.startsWith('/npm/@fontsource-variable/') ||
+      url.pathname.startsWith('/npm/@huggingface/') || url.pathname.startsWith('/npm/onnxruntime-'))) {
     event.respondWith(cacheFirst(req));
   }
   // Demais (API do Supabase): não intercepta — dados sempre vão direto para a nuvem.

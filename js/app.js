@@ -6,7 +6,11 @@ import {
   createDictation, dictationSupported, speechSupported, speak, stopSpeaking, formatDictation,
 } from './voice.js';
 import { createLock, hasPin, clearPin, getLockDelay, setLockDelay } from './lock.js';
-const APP_VERSION = '1.0 (final)';
+import {
+  localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation,
+} from './ai.js';
+import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
+const APP_VERSION = '1.1';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -19,6 +23,8 @@ const $ = (sel) => document.querySelector(sel);
 const el = {
   app: $('#app'),
   back: $('#btn-back'),
+  sidebarBtn: $('#btn-sidebar'),
+  newTop: $('#btn-new-top'),
   syncStatus: $('#sync-status'),
   settingsBtn: $('#btn-settings'),
   banner: $('#banner'),
@@ -42,7 +48,15 @@ const el = {
   interim: $('#voice-interim'),
   btnVoice: $('#btn-voice'),
   btnSpeak: $('#btn-speak'),
+  btnCorrect: $('#btn-correct'),
   btnDelete: $('#btn-delete'),
+  correct: $('#correct-dialog'),
+  correctPreview: $('#correct-preview'),
+  correctNote: $('#correct-note'),
+  aiSection: $('#ai-section'),
+  aiText: $('#ai-text'),
+  btnAiFolder: $('#btn-ai-folder'),
+  voiceEngine: $('#voice-engine'),
   // login
   auth: $('#auth-screen'),
   tabLogin: $('#tab-login'),
@@ -101,6 +115,9 @@ const state = {
   localOnly: false,
   authMode: 'login',
   speaking: false,
+  preparingVoice: false,
+  correcting: false,
+  aiFolderSet: false,
 };
 
 // ---------- Utilidades ----------
@@ -180,32 +197,37 @@ function checkBackupReminder() {
   });
 }
 
-function confirmDialog(title, text, okLabel = 'OK') {
+// Abre um <dialog> com botões value="ok"/"cancel" e diz qual foi escolhido.
+function askDialog(dialog) {
   return new Promise((resolve) => {
-    el.confirmTitle.textContent = title;
-    el.confirmText.textContent = text;
-    el.confirmOk.textContent = okLabel;
-    el.confirm.returnValue = '';
+    dialog.returnValue = '';
     // Não depende só do evento "close": em alguns navegadores ele não dispara depois do envio
     // do formulário do diálogo (o botão "Excluir" parecia não fazer nada).
     let done = false;
     const finish = (ok) => {
       if (done) return;
       done = true;
-      el.confirm.removeEventListener('submit', onSubmit);
-      el.confirm.removeEventListener('cancel', onCancel);
-      el.confirm.removeEventListener('close', onClose);
-      if (el.confirm.open) el.confirm.close();
+      dialog.removeEventListener('submit', onSubmit);
+      dialog.removeEventListener('cancel', onCancel);
+      dialog.removeEventListener('close', onClose);
+      if (dialog.open) dialog.close();
       resolve(ok);
     };
     const onSubmit = (ev) => { ev.preventDefault(); finish(ev.submitter?.value === 'ok'); };
     const onCancel = () => finish(false);
-    const onClose = () => finish(el.confirm.returnValue === 'ok');
-    el.confirm.addEventListener('submit', onSubmit);
-    el.confirm.addEventListener('cancel', onCancel);
-    el.confirm.addEventListener('close', onClose);
-    el.confirm.showModal();
+    const onClose = () => finish(dialog.returnValue === 'ok');
+    dialog.addEventListener('submit', onSubmit);
+    dialog.addEventListener('cancel', onCancel);
+    dialog.addEventListener('close', onClose);
+    dialog.showModal();
   });
+}
+
+function confirmDialog(title, text, okLabel = 'OK') {
+  el.confirmTitle.textContent = title;
+  el.confirmText.textContent = text;
+  el.confirmOk.textContent = okLabel;
+  return askDialog(el.confirm);
 }
 
 // ---------- Status de sincronização ----------
@@ -564,9 +586,16 @@ function insertAtCursor(raw) {
   onEdit();
 }
 
-const dictation = dictationSupported ? createDictation({
-  onFinal: insertAtCursor,
-  onInterim: (t) => { el.interim.textContent = t; el.interim.hidden = !t; },
+function showInterim(text) {
+  el.interim.textContent = text;
+  el.interim.hidden = !text;
+}
+
+let dictationEntry = null; // anotação que estava aberta quando o ditado começou
+const dictationEvents = {
+  // A transcrição chega um pouco depois da fala: nunca deixa cair em outra anotação.
+  onFinal: (text) => { if (state.currentId === dictationEntry) insertAtCursor(text); },
+  onInterim: showInterim,
   onStateChange: (on) => {
     el.btnVoice.classList.toggle('recording', on);
     el.btnVoice.setAttribute('aria-pressed', String(on));
@@ -578,20 +607,193 @@ const dictation = dictationSupported ? createDictation({
       'service-not-allowed': 'O ditado não está disponível neste navegador. Use o microfone do teclado.',
       'audio-capture': 'Nenhum microfone encontrado.',
       network: 'O ditado precisa de internet neste navegador. Use o microfone do teclado.',
+      model: 'A transcrição falhou. Toque em 🎤 Ditar para tentar de novo.',
     };
     toast(msgs[code] || 'O ditado parou. Toque em 🎤 Ditar para continuar.', 6000);
   },
-}) : null;
+};
 
-function toggleDictation() {
-  if (!dictation) {
+const localAI = createLocalAI({
+  onProgress: ({ loaded, total }) => {
+    if (total) showInterim(`⏳ Preparando a IA deste computador… ${Math.min(100, Math.round((loaded / total) * 100))}%`);
+  },
+});
+const browserDictation = dictationSupported ? createDictation(dictationEvents) : null;
+const whisperDictation = createWhisperDictation({ ai: localAI, ...dictationEvents });
+let dictation = browserDictation;
+
+// Liga a IA à pasta dos modelos (pede para escolher na primeira vez). Precisa vir de um toque do usuário.
+async function ensureLocalAI() {
+  let dir = await savedFolder();
+  if (!dir) {
+    const ok = await confirmDialog(
+      'Onde guardar a IA deste computador?',
+      'Escolha uma pasta (de preferência em um disco com espaço, como D:\\MeuDiario-IA). Se ela estiver vazia, o app baixa cerca de 3,6 GB uma única vez. Depois disso, sua voz e seu texto não saem do computador.',
+      'Escolher pasta',
+    );
+    if (!ok) return false;
+    try {
+      dir = await chooseFolder();
+    } catch {
+      return false; // desistiu na janela de escolher pasta
+    }
+    state.aiFolderSet = false;
+  }
+  if (!await folderReady(dir)) {
+    toast('Permita o acesso à pasta da IA para usar este recurso.', 6000);
+    return false;
+  }
+  if (!state.aiFolderSet) {
+    await localAI.setFolder(dir);
+    state.aiFolderSet = true;
+  }
+  return true;
+}
+
+// Ditado no computador: Whisper na própria máquina. Sem ele, o ditado do navegador.
+async function startWhisper() {
+  if (!await ensureLocalAI()) return true; // desistiu: não troca para o ditado do Google sem avisar
+  showInterim('⏳ Preparando a transcrição…');
+  await localAI.loadWhisper();
+  if (state.currentId !== dictationEntry) { showInterim(''); return true; }
+  dictation = whisperDictation;
+  await dictation.start();
+  return true;
+}
+
+async function toggleDictation() {
+  if (dictation?.active) { dictation.stop(); return; }
+  if (state.preparingVoice) return;
+  if (state.speaking) { stopSpeaking(); setSpeaking(false); }
+  dictationEntry = state.currentId;
+  if (!isMobile() && getPref('voiceEngine', 'whisper') === 'whisper' && await localAIAvailable()) {
+    state.preparingVoice = true;
+    el.btnVoice.disabled = true;
+    try {
+      await startWhisper();
+      return;
+    } catch (e) {
+      console.warn('Whisper indisponível', e);
+      showInterim('');
+      toast('A transcrição deste computador não abriu. Usando o ditado do navegador.', 6000);
+    } finally {
+      state.preparingVoice = false;
+      el.btnVoice.disabled = false;
+    }
+  }
+  if (!browserDictation) {
     toast('Este navegador não tem ditado embutido. Use o 🎤 do teclado do celular para falar em vez de digitar.', 7000);
     return;
   }
-  if (dictation.active) { dictation.stop(); return; }
-  if (state.speaking) { stopSpeaking(); setSpeaking(false); }
+  dictation = browserDictation;
   dictation.start();
   toast('Pode falar. Diga "vírgula", "ponto final" ou "nova linha" para pontuar.', 5000);
+}
+
+// ---------- Correção com IA ----------
+function renderCorrectionPreview(parts) {
+  const frag = document.createDocumentFragment();
+  for (const { type, text } of parts) {
+    const node = type === 'same' ? document.createElement('span') : document.createElement(type === 'add' ? 'ins' : 'del');
+    node.textContent = text;
+    frag.append(node);
+  }
+  el.correctPreview.replaceChildren(frag);
+}
+
+async function correctText() {
+  if (state.correcting || !currentEntry()) return;
+  const ta = el.content;
+  const hasSelection = ta.selectionEnd > ta.selectionStart;
+  const start = hasSelection ? ta.selectionStart : 0;
+  const end = hasSelection ? ta.selectionEnd : ta.value.length;
+  const original = ta.value.slice(start, end);
+  if (!original.trim()) { toast('Não há texto para corrigir.'); return; }
+  dictation?.stop();
+  if (state.speaking) { stopSpeaking(); setSpeaking(false); }
+
+  state.correcting = true;
+  el.btnCorrect.disabled = true;
+  const id = state.currentId;
+  try {
+    if (!await ensureLocalAI()) return;
+    ta.readOnly = true; // o texto não pode mudar enquanto a IA revisa
+    await flushSave();
+    const snapshot = ta.value;
+    showInterim('⏳ Preparando a correção…');
+    await localAI.loadCorrector();
+
+    const chunks = splitForCorrection(original);
+    const todo = chunks.filter((c) => c.text.trim()).length;
+    const parts = [];
+    const preview = [];
+    let done = 0;
+    let kept = 0;
+    for (const chunk of chunks) {
+      let fixed = chunk.text;
+      if (chunk.text.trim()) {
+        done += 1;
+        showInterim(`✨ Revisando o texto… ${done} de ${todo}`);
+        const answer = await localAI.correct(chunk.text);
+        if (isSafeCorrection(chunk.text, answer)) fixed = answer;
+        else kept += 1;
+      }
+      parts.push(fixed + chunk.sep);
+      preview.push(...diffWords(chunk.text, fixed), { type: 'same', text: chunk.sep });
+    }
+    showInterim('');
+
+    const corrected = parts.join('');
+    if (corrected === original) {
+      toast(kept ? 'A IA não conseguiu revisar este texto com segurança. Nada foi alterado.' : 'Nenhum erro encontrado ✓', 5000);
+      return;
+    }
+    renderCorrectionPreview(preview);
+    el.correctNote.textContent = kept
+      ? 'Em riscado, o que sai; em destaque, o que entra. Alguns trechos ficaram como estavam, porque a IA não os revisou com segurança.'
+      : 'Em riscado, o que sai; em destaque, o que entra.';
+    if (!await askDialog(el.correct)) return;
+    if (state.currentId !== id || ta.value !== snapshot) {
+      toast('O texto mudou enquanto a IA revisava. Nada foi alterado.', 6000);
+      return;
+    }
+    ta.setRangeText(corrected, start, end, 'preserve');
+    onEdit();
+    toast('Correções aplicadas ✓');
+  } catch (e) {
+    console.warn('Falha na correção', e);
+    showInterim('');
+    toast('A IA não conseguiu corrigir agora. Seu texto continua como estava.', 6000);
+  } finally {
+    ta.readOnly = false;
+    state.correcting = false;
+    el.btnCorrect.disabled = false;
+  }
+}
+
+async function renderLocalAI() {
+  const available = !isMobile() && await localAIAvailable();
+  el.aiSection.hidden = !available;
+  el.btnCorrect.hidden = !available;
+  if (!available) return;
+  const dir = await savedFolder();
+  el.aiText.textContent = dir
+    ? `Os modelos estão na pasta "${dir.name}". Sua voz e seu texto são processados aqui e não saem do computador.`
+    : 'Ao usar o ditado ou o botão Corrigir pela primeira vez, o app pede uma pasta para guardar a IA (cerca de 3,6 GB).';
+  el.btnAiFolder.textContent = dir ? 'Trocar pasta' : 'Escolher pasta';
+  el.voiceEngine.value = getPref('voiceEngine', 'whisper');
+}
+
+async function onChooseAiFolder() {
+  try {
+    const dir = await chooseFolder();
+    if (await folderReady(dir)) {
+      await localAI.setFolder(dir);
+      state.aiFolderSet = true;
+      toast('Pasta da IA definida ✓');
+    }
+  } catch { /* desistiu de escolher */ }
+  renderLocalAI();
 }
 
 function setSpeaking(on) {
@@ -626,6 +828,19 @@ setInterval(() => {
 }, 30 * 1000);
 
 // ---------- Preferências ----------
+function applyFocus(on) {
+  el.app.classList.toggle('focus', on);
+  setPref('focus', on ? '1' : '0');
+  const label = on ? 'Mostrar a lista de anotações' : 'Esconder a lista de anotações';
+  el.sidebarBtn.setAttribute('aria-pressed', String(on));
+  el.sidebarBtn.setAttribute('aria-label', label);
+  el.sidebarBtn.title = `${label} (Ctrl+B)`;
+}
+function toggleFocus() {
+  if (isMobile()) return; // no celular a lista e o editor já são telas separadas
+  applyFocus(!el.app.classList.contains('focus'));
+}
+
 function applyFont(px) {
   const v = Math.min(FONT_MAX, Math.max(FONT_MIN, px));
   document.documentElement.style.setProperty('--editor-font', v + 'px');
@@ -987,6 +1202,7 @@ document.addEventListener('visibilitychange', () => {
 
 function renderAccount() {
   el.appVersion.textContent = `Meu Diário · versão ${APP_VERSION}`;
+  renderLocalAI().catch((e) => console.warn(e));
   renderPin();
   renderBackupInfo();
   el.btnSyncNow.hidden = !(CONFIGURED && state.user);
@@ -1004,6 +1220,8 @@ function renderAccount() {
 // ---------- Eventos ----------
 function bindEvents() {
   el.btnNew.addEventListener('click', () => { newEntry(); });
+  el.newTop.addEventListener('click', () => { newEntry(); });
+  el.sidebarBtn.addEventListener('click', toggleFocus);
   el.list.addEventListener('click', (ev) => {
     const btn = ev.target.closest('.entry-item');
     if (btn) openEntry(btn.dataset.id);
@@ -1025,10 +1243,14 @@ function bindEvents() {
   }
   el.btnVoice.addEventListener('click', toggleDictation);
   el.btnSpeak.addEventListener('click', toggleSpeak);
+  el.btnCorrect.addEventListener('click', correctText);
   el.btnDelete.addEventListener('click', deleteCurrent);
+  el.btnAiFolder.addEventListener('click', onChooseAiFolder);
+  el.voiceEngine.addEventListener('change', () => setPref('voiceEngine', el.voiceEngine.value));
 
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); saveNow(); }
+    if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 'b') { ev.preventDefault(); toggleFocus(); }
   });
 
   // Salva ao sair/minimizar o app
@@ -1100,7 +1322,7 @@ function registerServiceWorker() {
   navigator.serviceWorker.addEventListener('controllerchange', () => {
     if (!hadController || reloading) return;
     const tryReload = () => {
-      const busy = state.saveTimer || state.pendingWrites.size || dictation?.active ||
+      const busy = state.saveTimer || state.pendingWrites.size || dictation?.active || state.correcting ||
         (document.activeElement === el.content || document.activeElement === el.title);
       if (busy && document.visibilityState === 'visible') { setTimeout(tryReload, 4000); return; }
       reloading = true;
@@ -1120,6 +1342,7 @@ async function boot() {
   window.matchMedia('(prefers-color-scheme: dark)').addEventListener?.('change', () => applyTheme(el.themeSelect.value));
   el.pauseSelect.value = getPref('pause', '20');
   if (!el.pauseSelect.value) el.pauseSelect.value = '20';
+  applyFocus(getPref('focus', '0') === '1');
 
   bindEvents();
   if (hasPin()) lock.lock();

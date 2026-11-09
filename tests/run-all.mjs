@@ -15,6 +15,10 @@ const a = run('sync.test.mjs');
 console.log(a.out.split('\n').filter((l) => l.startsWith('ok') || l.includes('PASSARAM')).join('\n'));
 if (!a.ok) { console.error(a.out); process.exit(1); }
 
+const t = run('ai-text.test.mjs');
+console.log(t.out.split('\n').filter((l) => l.startsWith('ok') || l.includes('PASSARAM')).join('\n'));
+if (!t.ok) { console.error(t.out); process.exit(1); }
+
 let fails = 0;
 for (let s = 1; s <= seeds; s++) {
   const r = run('two-devices.test.mjs', { SEED: String(s) });
