@@ -6,7 +6,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.1** (`APP_VERSION = '1.1'` em `js/app.js`, `CACHE = 'diario-final-1.1'` em `sw.js`).
+- **Versão: 1.1.1** (`APP_VERSION = '1.1.1'` em `js/app.js`, `CACHE = 'diario-final-1.1.1'` em `sw.js`).
   A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
 - **IA local no PC** (1.1): Whisper (ditado) + Gemma 4 (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
   (3,6 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
@@ -43,6 +43,14 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 2 (continuação) — 09/11/2026 — Ditado preso em "Ouvindo" (v1.1.1)
+- Sintoma: no PC do usuário o ditado ficava em "Ouvindo" e nenhum texto aparecia. IA, pasta e permissões estavam ok.
+- Causa: `getUserMedia` sem `deviceId` fazia o Chrome escolher o **Steam Streaming Microphone** (virtual e mudo). O microfone
+  real do usuário é o NVIDIA Broadcast, padrão do Windows. Volume medido com fala: bom (média ~0,06; limite do detector 0,012).
+- Correção: sempre pede o aparelho com `deviceId: { exact }` (o escolhido em ⚙ ou `default`); seletor de microfone nas
+  Configurações; o painel mostra o microfone em uso e avisa se nenhuma voz for captada nos primeiros 10 s do ditado.
+- O NVIDIA Broadcast corta para silêncio absoluto (zero) quando ninguém fala: isso é normal, não indica defeito.
 
 ## Sessão 2 — 09/11/2026 — Tela cheia, voz com Whisper e correção com IA (v1.1)
 Pedido: esconder a barra lateral, um bom modo de voz no PC com transcrição e uma IA que corrija ortografia e

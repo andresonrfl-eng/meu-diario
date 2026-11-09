@@ -142,8 +142,38 @@ function concat(frames) {
   return out;
 }
 
-export function createWhisperDictation({ ai, onFinal, onInterim, onStateChange, onError }) {
+const NO_VOICE_WARNING_FRAMES = 100; // 10 s sem captar voz
+
+export async function listMics() {
+  const devices = await navigator.mediaDevices.enumerateDevices();
+  return devices
+    .filter((d) => d.kind === 'audioinput' && d.label && d.deviceId !== 'communications')
+    .map((d) => ({ id: d.deviceId, label: d.label }));
+}
+
+// Sem indicar o aparelho, o Chrome pode escolher um microfone virtual mudo (ex.: Steam Streaming Microphone).
+// Por isso sempre pede o escolhido nas Configurações ou, na falta dele, o padrão do sistema.
+async function openMic(preferred) {
+  const audio = { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+  for (const id of new Set([preferred, 'default'])) {
+    try {
+      return await navigator.mediaDevices.getUserMedia({ audio: { ...audio, deviceId: { exact: id } } });
+    } catch (e) {
+      if (e?.name !== 'OverconstrainedError' && e?.name !== 'NotFoundError') throw e;
+    }
+  }
+  return navigator.mediaDevices.getUserMedia({ audio });
+}
+
+function micName(track) {
+  return track?.label?.match(/\(([^)]+)\)/)?.[1] || 'microfone';
+}
+
+export function createWhisperDictation({ ai, getMic, onFinal, onInterim, onStateChange, onError }) {
   let running = false;
+  let micLabel = 'microfone';
+  let framesWithoutVoice = 0;
+  let heardVoice = false;
   let finishing = false;
   let ctx = null;
   let stream = null;
@@ -156,7 +186,9 @@ export function createWhisperDictation({ ai, onFinal, onInterim, onStateChange, 
 
   function status() {
     if (inFlight) onInterim('✍️ Transcrevendo…');
-    else if (running) onInterim('🎧 Ouvindo… pode falar.');
+    else if (running && framesWithoutVoice >= NO_VOICE_WARNING_FRAMES) {
+      onInterim(`🔇 Não estou captando sua voz em "${micLabel}". Confira o microfone em ⚙ Configurações.`);
+    } else if (running) onInterim(`🎧 Ouvindo (${micLabel})… pode falar.`);
     else onInterim('');
   }
   function settle() {
@@ -196,6 +228,15 @@ export function createWhisperDictation({ ai, onFinal, onInterim, onStateChange, 
     const threshold = Math.max(0.012, floor * 3);
     const voiced = level > threshold;
     if (!voiced) floor = floor * 0.95 + level * 0.05;
+    if (voiced) {
+      const wasWarning = framesWithoutVoice >= NO_VOICE_WARNING_FRAMES;
+      framesWithoutVoice = 0;
+      heardVoice = true;
+      if (wasWarning) status();
+    } else if (!heardVoice) { // pausas para pensar depois de já ter falado não geram aviso
+      framesWithoutVoice += 1;
+      if (framesWithoutVoice === NO_VOICE_WARNING_FRAMES) status();
+    }
     if (!segment) {
       preRoll.push(frame);
       if (preRoll.length * FRAME_MS > PRE_ROLL_MS) preRoll.shift();
@@ -224,10 +265,11 @@ export function createWhisperDictation({ ai, onFinal, onInterim, onStateChange, 
       running = true;
       onStateChange(true);
       try {
-        stream = await navigator.mediaDevices.getUserMedia({
-          audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true, autoGainControl: true },
-        });
+        stream = await openMic(getMic?.() || 'default');
         if (!running) { releaseMic(); return; }
+        micLabel = micName(stream.getAudioTracks()[0]);
+        framesWithoutVoice = 0;
+        heardVoice = false;
         // Pedir 16 kHz faz o navegador converter o áudio para o formato que o Whisper usa.
         ctx = new AudioContext({ sampleRate: 16000 });
         if (ctx.state === 'suspended') await ctx.resume();

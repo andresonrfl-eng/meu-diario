@@ -7,10 +7,10 @@ import {
 } from './voice.js';
 import { createLock, hasPin, clearPin, getLockDelay, setLockDelay } from './lock.js';
 import {
-  localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation,
+  localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation, listMics,
 } from './ai.js';
 import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
-const APP_VERSION = '1.1';
+const APP_VERSION = '1.1.1';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -57,6 +57,7 @@ const el = {
   aiText: $('#ai-text'),
   btnAiFolder: $('#btn-ai-folder'),
   voiceEngine: $('#voice-engine'),
+  micSelect: $('#mic-select'),
   // login
   auth: $('#auth-screen'),
   tabLogin: $('#tab-login'),
@@ -619,7 +620,11 @@ const localAI = createLocalAI({
   },
 });
 const browserDictation = dictationSupported ? createDictation(dictationEvents) : null;
-const whisperDictation = createWhisperDictation({ ai: localAI, ...dictationEvents });
+const whisperDictation = createWhisperDictation({
+  ai: localAI,
+  getMic: () => getPref('mic', 'default'),
+  ...dictationEvents,
+});
 let dictation = browserDictation;
 
 // Liga a IA à pasta dos modelos (pede para escolher na primeira vez). Precisa vir de um toque do usuário.
@@ -782,6 +787,16 @@ async function renderLocalAI() {
     : 'Ao usar o ditado ou o botão Corrigir pela primeira vez, o app pede uma pasta para guardar a IA (cerca de 3,6 GB).';
   el.btnAiFolder.textContent = dir ? 'Trocar pasta' : 'Escolher pasta';
   el.voiceEngine.value = getPref('voiceEngine', 'whisper');
+  const mics = await listMics().catch(() => []);
+  const options = (mics.length ? mics : [{ id: 'default', label: 'Padrão do Windows' }]).map(({ id, label }) => {
+    const option = document.createElement('option');
+    option.value = id;
+    option.textContent = label;
+    return option;
+  });
+  el.micSelect.replaceChildren(...options);
+  el.micSelect.value = getPref('mic', 'default');
+  if (!el.micSelect.value) el.micSelect.value = options[0].value;
 }
 
 async function onChooseAiFolder() {
@@ -1247,6 +1262,7 @@ function bindEvents() {
   el.btnDelete.addEventListener('click', deleteCurrent);
   el.btnAiFolder.addEventListener('click', onChooseAiFolder);
   el.voiceEngine.addEventListener('change', () => setPref('voiceEngine', el.voiceEngine.value));
+  el.micSelect.addEventListener('change', () => setPref('mic', el.micSelect.value));
 
   document.addEventListener('keydown', (ev) => {
     if ((ev.ctrlKey || ev.metaKey) && ev.key.toLowerCase() === 's') { ev.preventDefault(); saveNow(); }
