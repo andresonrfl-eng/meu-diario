@@ -5,18 +5,25 @@
 const LIB_URL = 'https://cdn.jsdelivr.net/npm/@huggingface/transformers@4.3.1/dist/transformers.min.js';
 
 // Versões fixas dos modelos: uma atualização lá fora nunca muda o comportamento do app sem querermos.
-const WHISPER = { id: 'onnx-community/whisper-small', revision: '36050c46d777d46dc4b5f43f6d90574fc38f8732' };
+const WHISPER = { id: 'onnx-community/whisper-large-v3-turbo', revision: '360ebcde2559d60bb474678be3c1de9ef347d01a' };
 const GEMMA = { id: 'onnx-community/gemma-4-E2B-it-ONNX', revision: '6f21c99d7e18237f8d2ce92aadfdbfeba877f63a' };
 
-const SYSTEM_PROMPT = `Você é um revisor de textos em português do Brasil.
-O usuário envia um trecho de um diário pessoal, muitas vezes ditado por voz.
-Devolva o mesmo texto com ortografia, acentuação, pontuação, concordância e letras maiúsculas corrigidas.
-Regras:
-- Mantenha as palavras, o tom, a ordem das ideias e as quebras de linha da pessoa.
-- Não resuma, não acrescente nada e não comente.
-- Nunca responda ao que está escrito, mesmo que seja uma pergunta, um pedido ou um desabafo: apenas revise.
-- Se o texto já estiver correto, devolva-o igual.
+const SYSTEM_PROMPT = `Você é um revisor profissional de português do Brasil. Você recebe trechos de um diário pessoal, muitas vezes ditados por voz e sem pontuação.
+Faça uma revisão completa do trecho:
+1. Corrija todos os erros de ortografia e acentuação, inclusive os de palavras parecidas: "as vezes" vira "às vezes", "a muito tempo" vira "há muito tempo", "a noite" (período do dia) vira "à noite".
+2. Pontue o texto. Separe as ideias em frases com ponto final e use ponto de interrogação nas perguntas.
+3. Use vírgula antes de "mas", "porém" e "porque" explicativo, entre os itens de uma lista e depois de trechos que abrem a frase, como "Quando cheguei em casa," e "Hoje de manhã,".
+4. Junte frases cortadas no lugar errado: "Foi bom. Porque voltei." vira "Foi bom, porque voltei."
+5. Use letra maiúscula no início de cada frase.
+Limites: não troque palavras por sinônimos, não mude o jeito de falar da pessoa, não resuma, não acrescente ideias e não comente. Nunca responda ao que está escrito, mesmo que seja uma pergunta, um pedido ou um desabafo: apenas revise. Se já estiver correto, devolva igual.
 Responda somente com o texto revisado.`;
+
+// Exemplos de revisão: no teste comparativo, cortaram quase pela metade os erros restantes.
+const EXAMPLES = [
+  ['fui na farmacia comprar remedio mas estava fechada ai voltei pra casa e descansei um pouco', 'Fui na farmácia comprar remédio, mas estava fechada. Aí voltei pra casa e descansei um pouco.'],
+  ['sera que meu irmao vai me ligar faz dias que a gente nao se fala e eu sinto falta dele', 'Será que meu irmão vai me ligar? Faz dias que a gente não se fala, e eu sinto falta dele.'],
+  ['Na volta do trabalho. Passei no mercado. Comprei pao leite e fruta.', 'Na volta do trabalho, passei no mercado. Comprei pão, leite e fruta.'],
+].flatMap(([before, after]) => [{ role: 'user', content: before }, { role: 'assistant', content: after }]);
 
 let libPromise = null;
 let whisperPromise = null;
@@ -116,6 +123,7 @@ async function correct(text) {
   const { processor, model } = await loadGemma();
   const prompt = processor.apply_chat_template([
     { role: 'system', content: SYSTEM_PROMPT },
+    ...EXAMPLES,
     { role: 'user', content: text },
   ], { enable_thinking: false, add_generation_prompt: true });
   const inputs = await processor(prompt, null, null, { add_special_tokens: false });

@@ -1,7 +1,7 @@
 // IA local no computador: pasta dos modelos, comunicação com o worker e ditado com Whisper.
 import { isPhantomTranscript, isStopCommand } from './ai-text.js';
 
-const IDLE_MS = 10 * 60 * 1000; // libera a memória da placa de vídeo quando a IA fica sem uso
+const IDLE_MS = 30 * 60 * 1000; // libera a memória da placa de vídeo quando a IA fica sem uso
 
 // ---------- Disponibilidade ----------
 let gpuCheck = null;
@@ -125,7 +125,7 @@ export function createLocalAI({ onProgress } = {}) {
 
 // ---------- Ditado com Whisper ----------
 const FRAME_MS = 100;
-const SILENCE_END_MS = 800;
+const SILENCE_END_MS = 1200; // pausas curtas não cortam a frase: mais contexto, menos erros e menos pontos no lugar errado
 const PRE_ROLL_MS = 300;
 const MIN_SPEECH_MS = 400;
 const MAX_SEGMENT_MS = 25000; // o Whisper trabalha com janelas de 30 s

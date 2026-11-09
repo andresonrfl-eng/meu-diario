@@ -6,10 +6,10 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.1.1** (`APP_VERSION = '1.1.1'` em `js/app.js`, `CACHE = 'diario-final-1.1.1'` em `sw.js`).
+- **Versão: 1.2** (`APP_VERSION = '1.2'` em `js/app.js`, `CACHE = 'diario-final-1.2'` em `sw.js`).
   A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
-- **IA local no PC** (1.1): Whisper (ditado) + Gemma 4 (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
-  (3,6 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
+- **IA local no PC**: Whisper Large v3 Turbo (ditado) + Gemma 4 E2B (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
+  (4,8 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
 - **Bloqueio com PIN** (opcional, por aparelho) — `js/lock.js`.
 - **Supabase acordado:** GitHub Actions `.github/workflows/manter-acordado.yml` chama `public.ping()` a cada 3 dias.
 - **Aviso de cópia de segurança** mensal no app (banner "Baixar cópia").
@@ -43,6 +43,24 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 2 (continuação) — 09/11/2026 — Melhor transcrição e pontuação (v1.2)
+Pedido: melhorar a transcrição e a correção, sobretudo ortografia, vírgulas e pontos. Comparação feita com gabarito no PC do
+usuário (10 textos com erros; o texto bruto tinha 73 diferenças para o gabarito) e 41 s de voz sintética:
+
+| Correção | Erros restantes | Tempo |
+|---|---|---|
+| Gemma E2B, instruções antigas | 15 | 24 s |
+| Gemma E2B, instruções novas | 12 | 20 s |
+| **Gemma E2B, instruções novas + 3 exemplos (escolhido)** | **8** | 24 s |
+| Gemma E2B, com "modo pensar" | 7 | 25 s |
+| Gemma E4B (4,9 GB), com exemplos | 7 | 59 s; carga 50 s; 7,6 de 8 GB de vídeo |
+
+Transcrição: Whisper Small errou 2 palavras; **Large v3 Turbo errou 0**, no mesmo tempo (~6 s), e foi o escolhido.
+O E4B não compensou (ganho de 1 erro, 2,5x mais lento e placa no limite); o "modo pensar" ficou dentro da variação do teste.
+Também: corte de frase passou de 800 ms para 1,2 s de silêncio; a IA fica carregada por 30 min sem uso.
+Limites do teste: voz sintética (fala real é mais difícil) e amostra pequena. O navegador interno pode perder a placa de vídeo com o
+painel oculto; para testes de IA, usar o Chrome real.
 
 ## Sessão 2 (continuação) — 09/11/2026 — Ditado preso em "Ouvindo" (v1.1.1)
 - Sintoma: no PC do usuário o ditado ficava em "Ouvindo" e nenhum texto aparecia. IA, pasta e permissões estavam ok.

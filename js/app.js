@@ -10,7 +10,7 @@ import {
   localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation, listMics,
 } from './ai.js';
 import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.2';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -633,7 +633,7 @@ async function ensureLocalAI() {
   if (!dir) {
     const ok = await confirmDialog(
       'Onde guardar a IA deste computador?',
-      'Escolha uma pasta (de preferência em um disco com espaço, como D:\\MeuDiario-IA). Se ela estiver vazia, o app baixa cerca de 3,6 GB uma única vez. Depois disso, sua voz e seu texto não saem do computador.',
+      'Escolha uma pasta (de preferência em um disco com espaço, como D:\\MeuDiario-IA). Se ela estiver vazia, o app baixa cerca de 4,8 GB uma única vez. Depois disso, sua voz e seu texto não saem do computador.',
       'Escolher pasta',
     );
     if (!ok) return false;
@@ -784,7 +784,7 @@ async function renderLocalAI() {
   const dir = await savedFolder();
   el.aiText.textContent = dir
     ? `Os modelos estão na pasta "${dir.name}". Sua voz e seu texto são processados aqui e não saem do computador.`
-    : 'Ao usar o ditado ou o botão Corrigir pela primeira vez, o app pede uma pasta para guardar a IA (cerca de 3,6 GB).';
+    : 'Ao usar o ditado ou o botão Corrigir pela primeira vez, o app pede uma pasta para guardar a IA (cerca de 4,8 GB).';
   el.btnAiFolder.textContent = dir ? 'Trocar pasta' : 'Escolher pasta';
   el.voiceEngine.value = getPref('voiceEngine', 'whisper');
   const mics = await listMics().catch(() => []);
