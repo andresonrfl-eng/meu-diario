@@ -1,6 +1,6 @@
 // Service worker: permite abrir o app sem internet e instalá-lo como aplicativo.
 // IMPORTANTE: ao mudar qualquer arquivo do app, aumente a versão abaixo.
-const CACHE = 'diario-final-1.2';
+const CACHE = 'diario-final-1.2.1';
 const SHELL = [
   './',
   './index.html',

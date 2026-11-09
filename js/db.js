@@ -67,6 +67,20 @@ export function put(entry) {
   return run('entries', 'readwrite', (tx) => { tx.objectStore('entries').put(entry); });
 }
 
+// Gravação vinda da tela. A cópia em memória pode estar atrasada em relação à sincronização,
+// então a "base" do servidor (server_updated_at) é sempre a do banco. Sem isso, uma edição feita
+// durante o envio apagaria a base nova e o sync veria um conflito falso com outro aparelho.
+export function putLocal(entry) {
+  return run('entries', 'readwrite', (tx) => {
+    const s = tx.objectStore('entries');
+    const r = s.get(entry.id);
+    r.onsuccess = () => {
+      const base = r.result?.server_updated_at;
+      s.put(base ? { ...entry, server_updated_at: base } : entry);
+    };
+  });
+}
+
 export async function getDirty() {
   return (await getAll()).filter((e) => e.dirty);
 }

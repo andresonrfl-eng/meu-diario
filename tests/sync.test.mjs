@@ -224,5 +224,25 @@ console.log('ok 10 limpar');
   assert.equal(conflicts, 0);
   console.log('ok 14 registros antigos');
 }
+
+// 15. a tela grava a partir de uma cópia em memória atrasada (edições durante o envio): sem cópia falsa
+{
+  conflicts = 0;
+  const before = [...server.values()].filter((r) => /outro aparelho/i.test(r.title || '')).length;
+  await db.putLocal({ id: 'g', title: '', content: 'v1', mood: null, created_at: now(), rev: 'g1', dirty: 1, deleted: false });
+  await sync.runNow();
+  const memory = await db.get('g'); // o que a tela guarda; a base dela não é atualizada durante as edições
+  await db.putLocal({ ...memory, content: 'v2', rev: 'g2', dirty: 1 });
+  hookUpsert = async () => { await db.putLocal({ ...memory, content: 'v3', rev: 'g3', dirty: 1 }); };
+  await sync.runNow(); // envia v2 e, durante o envio, chega v3
+  await db.putLocal({ ...memory, content: 'v4', rev: 'g4', dirty: 1 });
+  await sync.runNow();
+  await db.putLocal({ ...memory, content: 'v5', rev: 'g5', dirty: 1 });
+  await sync.runNow();
+  assert.equal(server.get('g').content, 'v5');
+  assert.equal(conflicts, 0, 'nenhum conflito falso');
+  assert.equal([...server.values()].filter((r) => /outro aparelho/i.test(r.title || '')).length, before, 'nenhuma cópia nova');
+  console.log('ok 15 edições durante o envio não criam cópias');
+}
 console.log('TODOS OS TESTES PASSARAM');
 process.exit(0);

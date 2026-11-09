@@ -6,7 +6,7 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.2** (`APP_VERSION = '1.2'` em `js/app.js`, `CACHE = 'diario-final-1.2'` em `sw.js`).
+- **Versão: 1.2.1** (`APP_VERSION = '1.2.1'` em `js/app.js`, `CACHE = 'diario-final-1.2.1'` em `sw.js`).
   A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
 - **IA local no PC**: Whisper Large v3 Turbo (ditado) + Gemma 4 E2B (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
   (4,8 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
@@ -43,6 +43,13 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 3 — Cópias falsas "(versão de outro aparelho)" (v1.2.1)
+- Sintoma: ao ditar/corrigir surgiam anotações novas. No diário do usuário, 16 das 17 anotações eram cópias da mesma anotação.
+- Causa: `saveNow` grava a partir da cópia em memória. Se a edição acontece durante o envio, `markClean` salva a base nova no banco,
+  mas a memória continua com a antiga (`refreshDirtyFlags` só copia quando `dirty` muda) e a próxima gravação devolvia a base velha
+  ao banco. O sync via a própria versão anterior como edição de outro aparelho. Bug antigo, exposto por ditado e correção.
+- Correção: `db.putLocal` (usado por `queueWrite`) sempre preserva a base que está no banco. Teste 15 em `tests/sync.test.mjs`.
 
 ## Sessão 2 (continuação) — 09/11/2026 — Melhor transcrição e pontuação (v1.2)
 Pedido: melhorar a transcrição e a correção, sobretudo ortografia, vírgulas e pontos. Comparação feita com gabarito no PC do

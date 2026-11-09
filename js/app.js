@@ -10,7 +10,7 @@ import {
   localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation, listMics,
 } from './ai.js';
 import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
-const APP_VERSION = '1.2';
+const APP_VERSION = '1.2.1';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -482,7 +482,7 @@ function queueWrite(record) {
   state.pendingWrites.set(record.id, (state.pendingWrites.get(record.id) || 0) + 1);
   let ok = false;
   state.saveChain = state.saveChain
-    .then(() => db.put(record))
+    .then(() => db.putLocal(record))
     .then(() => {
       ok = true;
       tabs?.postMessage({ type: 'changed', ids: [record.id] });
