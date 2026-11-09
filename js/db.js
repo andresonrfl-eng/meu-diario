@@ -1,12 +1,13 @@
 // Banco de dados LOCAL (IndexedDB) — guarda tudo no aparelho, funciona offline.
 // Cada anotação: { id, title, content, mood, created_at, updated_local,
 //                  server_updated_at, rev, dirty, deleted }
-//  - rev:   contador local, aumenta a cada edição (evita perder edições durante a sincronização)
+//  - rev:   identificador único de cada gravação (evita perder edições durante a sincronização)
+//  - pages: nomes das fotos de páginas da anotação (os arquivos ficam no objeto "images")
 //  - dirty: 1 = ainda não enviada para a nuvem
 //  - deleted: marcador de exclusão (enviado para a nuvem e depois removido do aparelho)
 
 const DB_NAME = 'meu-diario';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 let dbPromise = null;
 
 function openDB() {
@@ -17,6 +18,8 @@ function openDB() {
         const d = req.result;
         if (!d.objectStoreNames.contains('entries')) d.createObjectStore('entries', { keyPath: 'id' });
         if (!d.objectStoreNames.contains('meta')) d.createObjectStore('meta');
+        // Fotos de páginas: { name, blob, uploaded } (a lista de cada anotação fica em entry.pages)
+        if (!d.objectStoreNames.contains('images')) d.createObjectStore('images', { keyPath: 'name' });
       };
       req.onsuccess = () => {
         const d = req.result;
@@ -113,13 +116,17 @@ export function markClean(id, rev, serverUpdatedAt) {
 // Aplica uma linha vinda da nuvem. Retorna true se algo mudou no aparelho.
 // Se a cópia local tem edições não enviadas, a local vence (será enviada na próxima vez).
 export function applyRemote(row) {
-  return run('entries', 'readwrite', (tx, set) => {
+  return run(['entries', 'images'], 'readwrite', (tx, set) => {
     set(false);
     const s = tx.objectStore('entries');
+    const images = tx.objectStore('images');
     const r = s.get(row.id);
     r.onsuccess = () => {
       const rec = r.result;
       if (rec && rec.dirty) return;
+      const pages = Array.isArray(row.pages) ? row.pages : [];
+      // Foto retirada em outro aparelho: libera a cópia guardada neste.
+      for (const name of rec?.pages || []) if (row.deleted || !pages.includes(name)) images.delete(name);
       if (row.deleted) {
         if (rec) { s.delete(row.id); set(true); }
         return;
@@ -130,6 +137,7 @@ export function applyRemote(row) {
         title: row.title ?? '',
         content: row.content ?? '',
         mood: row.mood ?? null,
+        pages,
         created_at: row.created_at,
         server_updated_at: row.updated_at,
         updated_local: row.updated_at,
@@ -161,8 +169,65 @@ export function setMeta(key, value) {
 }
 
 export function clearAll() {
-  return run(['entries', 'meta'], 'readwrite', (tx) => {
+  return run(['entries', 'meta', 'images'], 'readwrite', (tx) => {
     tx.objectStore('entries').clear();
     tx.objectStore('meta').clear();
+    tx.objectStore('images').clear();
+  });
+}
+
+// ---------- Fotos de páginas ----------
+export function putImage(image) {
+  return run('images', 'readwrite', (tx) => { tx.objectStore('images').put(image); });
+}
+
+export function getImage(name) {
+  return run('images', 'readonly', (tx, set) => {
+    const r = tx.objectStore('images').get(name);
+    r.onsuccess = () => set(r.result || null);
+  });
+}
+
+export function getPendingImages() {
+  return run('images', 'readonly', (tx, set) => {
+    const r = tx.objectStore('images').getAll();
+    r.onsuccess = () => set((r.result || []).filter((i) => !i.uploaded));
+  });
+}
+
+export function markImageUploaded(name) {
+  return run('images', 'readwrite', (tx) => {
+    const s = tx.objectStore('images');
+    const r = s.get(name);
+    r.onsuccess = () => { if (r.result) s.put({ ...r.result, uploaded: 1 }); };
+  });
+}
+
+// A base da anotação passa a ser a versão vista no servidor (a versão de lá já foi guardada como cópia).
+export function setServerBase(id, serverUpdatedAt) {
+  return run('entries', 'readwrite', (tx) => {
+    const s = tx.objectStore('entries');
+    const r = s.get(id);
+    r.onsuccess = () => { if (r.result) s.put({ ...r.result, server_updated_at: serverUpdatedAt }); };
+  });
+}
+
+// Retira fotos do aparelho e deixa anotado que devem sair também da nuvem.
+export function trashImages(names) {
+  if (!names?.length) return Promise.resolve();
+  return run(['images', 'meta'], 'readwrite', (tx) => {
+    const images = tx.objectStore('images');
+    const meta = tx.objectStore('meta');
+    for (const name of names) images.delete(name);
+    const r = meta.get('imageTrash');
+    r.onsuccess = () => meta.put([...new Set([...(r.result || []), ...names])], 'imageTrash');
+  });
+}
+
+export function clearTrash(names) {
+  return run('meta', 'readwrite', (tx) => {
+    const meta = tx.objectStore('meta');
+    const r = meta.get('imageTrash');
+    r.onsuccess = () => meta.put((r.result || []).filter((n) => !names.includes(n)), 'imageTrash');
   });
 }

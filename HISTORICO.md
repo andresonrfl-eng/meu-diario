@@ -6,7 +6,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.2.1** (`APP_VERSION = '1.2.1'` em `js/app.js`, `CACHE = 'diario-final-1.2.1'` em `sw.js`).
+- **Versão: 1.3** (`APP_VERSION = '1.3'` em `js/app.js`, `CACHE = 'diario-final-1.3'` em `sw.js`).
+- **Fotos de páginas** (1.3): bucket privado `pages` no Supabase + coluna `entries.pages`; **PDF** com jsPDF 4.2.1 pelo jsDelivr.
   A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
 - **IA local no PC**: Whisper Large v3 Turbo (ditado) + Gemma 4 E2B (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
   (4,8 GB) — **nunca no disco C:**, que está quase cheio. Só no computador; o celular segue com o ditado do navegador.
@@ -43,6 +44,31 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 3 (continuação) — PDF, fotos de páginas, revisão geral e correção melhor (v1.3)
+Pedido: exportar em PDF, enviar fotos/digitalizações de páginas do diário físico como anotação, revisar erros e testar bugs e desempenho.
+O usuário saiu e autorizou seguir sem perguntar.
+
+**PDF** (`js/pdf.js`): 📄 no editor (uma anotação) e "Baixar tudo em PDF" nas Configurações. Texto selecionável, fotos em página própria,
+numeração. Fontes padrão do PDF: acentos ok; emojis saem (`pdfSafe`). Biblioteca carregada só ao usar.
+
+**Fotos** (`js/pages.js`): "📷 Enviar foto do diário" cria uma anotação; "📷 Foto" adiciona à aberta (até 30). Reduz para 2200 px em JPEG no aparelho
+(12 MP viraram ~100 KB no teste). Offline-first: fica em `images` no IndexedDB e sobe na sincronização, antes da anotação. O outro aparelho baixa sob demanda.
+Excluir apaga também da nuvem (`imageTrash`), exceto se outra anotação usar a mesma foto. Supabase alterado pelo painel: coluna `pages`, gatilho, bucket
+`pages` privado (8 MB, só JPEG) e 4 políticas por pasta do usuário (tudo em `schema.sql`). Digitalização em PDF não é aceita, só imagem.
+
+**Bugs achados na revisão e corrigidos:**
+1. Queda de rede depois de criar uma cópia de conflito fazia a mesma cópia ser criada de novo a cada tentativa (`setServerBase`, teste 8 de `pages.test.mjs`).
+2. Privacidade: diálogos ficam acima da tela de PIN; revisão da IA e foto apareceriam sobre o bloqueio. Agora o bloqueio fecha todos.
+3. Trocar de anotação durante a revisão da IA deixava a outra anotação só leitura. Agora aguarda (`busyCorrecting`).
+
+**Desempenho** (3.000 anotações, PC): abertura ~0,2 s; salvar sem travas; busca caiu de ~150 ms para ~5 ms por letra (texto preparado em cache + espera de 80 ms);
+lista desenha 300 por vez ("Mostrar mais"), DOM de 21 mil para 4 mil nós. PDF de 1.000 anotações: 0,8 s, 0,7 MB.
+
+**Correção:** 6 exemplos no lugar de 3; em 20 textos, erros restantes caíram de 17 para 12 (texto bruto: 108). Duas passadas não melhoraram (13 e mais lentas) e foram descartadas.
+
+**Pendências:** 13 cópias falsas continuam no diário porque têm palavras que não estão na principal (o usuário decide). Câmera/galeria em celular real e fotos
+entre aparelhos reais não foram testadas com a pessoa. O cache de fotos baixadas no aparelho não tem limite.
 
 ## Sessão 3 — Cópias falsas "(versão de outro aparelho)" (v1.2.1)
 - Sintoma: ao ditar/corrigir surgiam anotações novas. No diário do usuário, 16 das 17 anotações eram cópias da mesma anotação.

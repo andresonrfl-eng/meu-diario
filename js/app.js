@@ -10,10 +10,13 @@ import {
   localAIAvailable, savedFolder, chooseFolder, folderReady, createLocalAI, createWhisperDictation, listMics,
 } from './ai.js';
 import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
-const APP_VERSION = '1.2.1';
+import { createPdf } from './pdf.js';
+import { preparePage, MAX_PAGES, pagesLabel, samePages } from './pages.js';
+const APP_VERSION = '1.3';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
+const LIST_PAGE = 300;
 const FONT_MIN = 15;
 const FONT_MAX = 32;
 const MOODS = { 1: '😢', 2: '😕', 3: '😐', 4: '🙂', 5: '😄' };
@@ -50,6 +53,23 @@ const el = {
   btnSpeak: $('#btn-speak'),
   btnCorrect: $('#btn-correct'),
   btnDelete: $('#btn-delete'),
+  btnPhoto: $('#btn-photo'),
+  btnPhotoNew: $('#btn-photo-new'),
+  btnEntryPdf: $('#btn-entry-pdf'),
+  btnExportPdf: $('#btn-export-pdf'),
+  pageInput: $('#page-input'),
+  pageCamera: $('#page-camera'),
+  pagesStrip: $('#pages-strip'),
+  photoSource: $('#photo-source'),
+  photoTake: $('#photo-take'),
+  photoPick: $('#photo-pick'),
+  pageViewer: $('#page-viewer'),
+  viewerImg: $('#viewer-img'),
+  viewerCount: $('#viewer-count'),
+  viewerPrev: $('#viewer-prev'),
+  viewerNext: $('#viewer-next'),
+  viewerRemove: $('#viewer-remove'),
+  viewerClose: $('#viewer-close'),
   correct: $('#correct-dialog'),
   correctPreview: $('#correct-preview'),
   correctNote: $('#correct-note'),
@@ -119,6 +139,15 @@ const state = {
   preparingVoice: false,
   correcting: false,
   aiFolderSet: false,
+  listLimit: 300,        // a lista desenha aos poucos: quem tem milhares de anotações não sente lentidão
+  pages: [],             // fotos da anotação aberta (nomes dos arquivos)
+  pagesToken: 0,
+  pageUrls: [],
+  photoForNew: false,
+  addingPages: false,
+  viewerIndex: 0,
+  viewerUrl: null,
+  exportingPdf: false,
 };
 
 // ---------- Utilidades ----------
@@ -278,11 +307,23 @@ function previewOf(e) {
   return text.slice(0, 160);
 }
 
+// Texto já preparado para a busca. Cada edição cria um objeto novo, então nunca fica desatualizado.
+const searchText = new WeakMap();
+function searchableText(e) {
+  let text = searchText.get(e);
+  if (text === undefined) {
+    text = normalize(`${e.title} ${e.content}`);
+    searchText.set(e, text);
+  }
+  return text;
+}
+
 function renderList() {
   const q = normalize(el.search.value.trim());
-  const items = sortedEntries().filter((e) => !q || normalize(`${e.title} ${e.content}`).includes(q));
+  const items = sortedEntries().filter((e) => !q || searchableText(e).includes(q));
+  const visible = items.slice(0, state.listLimit);
   const frag = document.createDocumentFragment();
-  for (const e of items) {
+  for (const e of visible) {
     const li = document.createElement('li');
     const btn = document.createElement('button');
     btn.type = 'button';
@@ -294,13 +335,20 @@ function renderList() {
     const title = document.createElement('div');
     title.className = 'entry-item-title';
     const t = document.createElement('span');
-    t.textContent = e.title.trim() || previewOf(e).slice(0, 50) || 'Sem título';
+    const pageCount = e.pages?.length || 0;
+    t.textContent = e.title.trim() || previewOf(e).slice(0, 50) || (pageCount ? 'Página do diário' : 'Sem título');
     title.append(t);
     if (e.mood && MOODS[e.mood]) {
       const m = document.createElement('span');
       m.textContent = MOODS[e.mood];
       m.title = MOOD_NAMES[e.mood];
       title.append(m);
+    }
+    if (pageCount) {
+      const p = document.createElement('span');
+      p.textContent = `📷${pageCount > 1 ? ` ${pageCount}` : ''}`;
+      p.title = pagesLabel(pageCount);
+      title.append(p);
     }
 
     const prev = document.createElement('div');
@@ -320,6 +368,15 @@ function renderList() {
       btn.append(d);
     }
     li.append(btn);
+    frag.append(li);
+  }
+  if (items.length > visible.length) {
+    const li = document.createElement('li');
+    const more = document.createElement('button');
+    more.type = 'button';
+    more.className = 'btn block list-more';
+    more.textContent = `Mostrar mais (${items.length - visible.length})`;
+    li.append(more);
     frag.append(li);
   }
   el.list.replaceChildren(frag);
@@ -370,6 +427,8 @@ function fillEditor(entry) {
   el.title.value = entry.title || '';
   el.content.value = entry.content || '';
   setMoodUI(entry.mood);
+  state.pages = [...(entry.pages || [])];
+  renderPages();
   el.saveState.textContent = entry === state.draft ? 'Nova anotação' : (entry.dirty ? 'Salvo no aparelho' : '');
   const len = el.content.value.length;
   try { el.content.setSelectionRange(len, len); } catch { /* ignore */ }
@@ -381,8 +440,15 @@ function stopVoice() {
   if (state.speaking) { stopSpeaking(); setSpeaking(false); }
 }
 
+// Enquanto a IA revisa, o texto aberto não pode ser trocado.
+function busyCorrecting() {
+  if (state.correcting) toast('Aguarde a IA terminar a revisão.');
+  return state.correcting;
+}
+
 async function openEntry(id) {
   if (id === state.currentId) { showEditorView(); return; }
+  if (busyCorrecting()) return;
   stopVoice();
   await flushSave();
   const entry = state.entries.get(id);
@@ -395,6 +461,7 @@ async function openEntry(id) {
 }
 
 async function newEntry() {
+  if (busyCorrecting()) return;
   stopVoice();
   await flushSave();
   state.draft = {
@@ -402,6 +469,7 @@ async function newEntry() {
     title: '',
     content: '',
     mood: null,
+    pages: [],
     created_at: new Date().toISOString(),
     rev: 0,
     dirty: 1,
@@ -421,6 +489,8 @@ function closeEditor() {
   state.saveTimer = null;
   state.currentId = null;
   state.draft = null;
+  state.pages = [];
+  renderPages();
   el.editor.hidden = true;
   el.editorEmpty.hidden = false;
   renderGreeting();
@@ -444,12 +514,13 @@ function saveNow() {
   const title = el.title.value;
   const content = el.content.value;
   const mood = state.mood;
+  const pages = [...state.pages];
   const isDraft = cur === state.draft;
-  if (isDraft && !title.trim() && !content.trim() && mood == null) {
+  if (isDraft && !title.trim() && !content.trim() && mood == null && !pages.length) {
     el.saveState.textContent = 'Nova anotação';
     return state.saveChain;
   }
-  if (!isDraft && cur.title === title && cur.content === content && (cur.mood ?? null) === mood) {
+  if (!isDraft && cur.title === title && cur.content === content && (cur.mood ?? null) === mood && samePages(cur.pages, pages)) {
     el.saveState.textContent = cur.dirty ? 'Salvo no aparelho' : 'Salvo';
     return state.saveChain;
   }
@@ -458,6 +529,7 @@ function saveNow() {
     title,
     content,
     mood,
+    pages,
     rev: newRev(),
     dirty: 1,
     updated_local: new Date().toISOString(),
@@ -528,10 +600,13 @@ async function deleteCurrent() {
   clearTimeout(state.saveTimer);
   state.saveTimer = null;
   if (cur === state.draft) { closeEditor(); return; }
-  const tomb = { ...cur, title: '', content: '', mood: null, deleted: true, dirty: 1, rev: newRev() };
+  const tomb = { ...cur, title: '', content: '', mood: null, pages: [], deleted: true, dirty: 1, rev: newRev() };
   state.entries.delete(cur.id);
   closeEditor();
-  if (await queueWrite(tomb)) toast('Anotação excluída');
+  if (await queueWrite(tomb)) {
+    await db.trashImages(cur.pages).catch((e) => console.warn(e));
+    toast('Anotação excluída');
+  }
 }
 
 // Mudanças feitas fora desta tela: baixadas da nuvem ou gravadas por outra aba.
@@ -563,6 +638,11 @@ async function onRemoteChange(ids, { fromTab = false } = {}) {
         try { el.content.setSelectionRange(selStart, selStart); } catch { /* ignore */ }
       }
       if ((rec.mood ?? null) !== state.mood) { setMoodUI(rec.mood); differs = true; }
+      if (!state.addingPages && !samePages(rec.pages, state.pages)) {
+        state.pages = [...(rec.pages || [])];
+        renderPages();
+        differs = true;
+      }
       if (differs) el.saveState.textContent = fromTab ? 'Atualizado em outra janela' : 'Atualizado de outro aparelho';
       else if (!rec.dirty) el.saveState.textContent = 'Salvo na nuvem ✓';
     }
@@ -904,20 +984,184 @@ async function exportData(kind) {
   if (!items.length) { toast('Não há anotações para exportar.'); return; }
   const stamp = new Date().toISOString().slice(0, 10);
   if (kind === 'json') {
-    const data = items.map(({ id, title, content, mood, created_at }) => ({ id, title, content, mood, created_at }));
+    const data = items.map(({ id, title, content, mood, created_at, pages }) => ({ id, title, content, mood, created_at, pages: pages || [] }));
     download(`meu-diario-${stamp}.json`, JSON.stringify({ app: 'meu-diario', version: 1, exported_at: new Date().toISOString(), entries: data }, null, 2), 'application/json');
   } else {
     const txt = items.slice().reverse().map((e) => {
       const head = `=== ${formatWhen(e.created_at)} ===`;
       const mood = e.mood ? `Humor: ${MOODS[e.mood]} ${MOOD_NAMES[e.mood]}\n` : '';
       const title = e.title.trim() ? `${e.title.trim()}\n` : '';
-      return `${head}\n${title}${mood}\n${e.content.trim()}\n`;
+      const photos = e.pages?.length ? `[${pagesLabel(e.pages.length)}: veja no PDF]\n` : '';
+      return `${head}\n${title}${mood}${photos}\n${e.content.trim()}\n`;
     }).join('\n');
     download(`meu-diario-${stamp}.txt`, '﻿' + txt, 'text/plain;charset=utf-8');
   }
   setPref('lastBackup', Date.now());
   renderBackupInfo();
   toast('Cópia baixada ✓ Guarde o arquivo num lugar seguro (ex.: Google Drive).', 5000);
+}
+
+async function exportPdf(scope) {
+  if (state.exportingPdf) return;
+  await flushSave();
+  const current = currentEntry();
+  const items = scope === 'current' ? (current && current !== state.draft ? [current] : []) : sortedEntries().slice().reverse();
+  if (!items.length) { toast(scope === 'current' ? 'Escreva algo antes de gerar o PDF.' : 'Não há anotações para exportar.'); return; }
+  state.exportingPdf = true;
+  el.btnEntryPdf.disabled = true;
+  el.btnExportPdf.disabled = true;
+  const stamp = new Date().toISOString().slice(0, 10);
+  try {
+    toast('Gerando o PDF…', 60000);
+    const { doc, missing } = await createPdf(items.map((e) => ({
+      title: e.title,
+      content: e.content,
+      whenText: formatWhen(e.created_at),
+      moodText: MOOD_NAMES[e.mood] || '',
+      pages: e.pages || [],
+    })), {
+      getPage: async (name) => {
+        const blob = await getPageBlob(name);
+        return blob ? new Uint8Array(await blob.arrayBuffer()) : null;
+      },
+      onProgress: (done, total) => { if (total > 1) toast(`Gerando o PDF… ${done} de ${total}`, 60000); },
+    });
+    doc.save(scope === 'current' ? `anotacao-${stamp}.pdf` : `meu-diario-${stamp}.pdf`);
+    if (scope === 'all') { setPref('lastBackup', Date.now()); renderBackupInfo(); }
+    toast(missing ? `PDF baixado, mas ${missing} foto(s) não entraram por falta de conexão.` : 'PDF baixado ✓', 6000);
+  } catch (e) {
+    console.warn('Falha ao gerar o PDF', e);
+    toast(e?.message === 'sem-biblioteca'
+      ? 'É preciso internet na primeira vez que o PDF é gerado.'
+      : 'Não foi possível gerar o PDF.', 6000);
+  } finally {
+    state.exportingPdf = false;
+    el.btnEntryPdf.disabled = false;
+    el.btnExportPdf.disabled = false;
+  }
+}
+
+// ---------- Fotos de páginas do diário físico ----------
+async function getPageBlob(name) {
+  const local = await db.getImage(name);
+  if (local?.blob) return local.blob;
+  if (!navigator.onLine || !state.sync) return null;
+  return state.sync.downloadImage(name);
+}
+
+function renderPages() {
+  const token = ++state.pagesToken;
+  state.pageUrls.forEach((u) => URL.revokeObjectURL(u));
+  state.pageUrls = [];
+  el.pagesStrip.hidden = !state.pages.length;
+  el.pagesStrip.replaceChildren(...state.pages.map((name, index) => {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'page-thumb';
+    button.dataset.index = String(index);
+    button.setAttribute('aria-label', `Abrir a foto ${index + 1} de ${state.pages.length}`);
+    getPageBlob(name).then((blob) => {
+      if (token !== state.pagesToken) return;
+      if (!blob) { button.textContent = 'Foto ainda não chegou'; return; }
+      const url = URL.createObjectURL(blob);
+      state.pageUrls.push(url);
+      const img = document.createElement('img');
+      img.alt = `Página ${index + 1}`;
+      img.decoding = 'async';
+      img.src = url;
+      button.append(img);
+    }).catch((e) => console.warn(e));
+    return button;
+  }));
+}
+
+function choosePhoto(forNew) {
+  if (busyCorrecting()) return;
+  state.photoForNew = forNew;
+  if (isMobile()) el.photoSource.showModal();
+  else el.pageInput.click();
+}
+
+async function addPages(input) {
+  const files = [...input.files];
+  input.value = '';
+  if (!files.length) return;
+  if (state.photoForNew) {
+    state.photoForNew = false;
+    await newEntry();
+  }
+  const id = state.currentId;
+  if (!id) return;
+  const room = MAX_PAGES - state.pages.length;
+  if (room <= 0) { toast(`Cada anotação guarda até ${MAX_PAGES} fotos. Crie outra para continuar.`, 6000); return; }
+  state.addingPages = true;
+  el.btnPhoto.disabled = true;
+  const chosen = files.slice(0, room);
+  let failed = 0;
+  try {
+    for (let i = 0; i < chosen.length && state.currentId === id; i++) {
+      el.saveState.textContent = `Preparando foto ${i + 1} de ${chosen.length}…`;
+      try {
+        const blob = await preparePage(chosen[i]);
+        if (state.currentId !== id) break;
+        const name = `${uuid()}.jpg`;
+        await db.putImage({ name, blob, uploaded: 0 });
+        state.pages = [...state.pages, name];
+        renderPages();
+      } catch (e) {
+        console.warn('Foto não adicionada', e);
+        failed += 1;
+      }
+    }
+    if (state.currentId === id) {
+      noteActivity();
+      await saveNow();
+    }
+    if (failed) toast(`${failed} imagem(ns) não puderam ser abertas. Use fotos em JPG ou PNG.`, 6000);
+    else if (files.length > room) toast(`Só couberam ${room} fotos nesta anotação.`, 6000);
+    else toast(chosen.length > 1 ? `${chosen.length} fotos adicionadas ✓` : 'Foto adicionada ✓');
+  } finally {
+    state.addingPages = false;
+    el.btnPhoto.disabled = false;
+  }
+}
+
+async function showViewerPage(index) {
+  if (!state.pages.length) { closeViewer(); return; }
+  state.viewerIndex = Math.max(0, Math.min(state.pages.length - 1, index));
+  el.viewerCount.textContent = `${state.viewerIndex + 1} de ${state.pages.length}`;
+  el.viewerPrev.disabled = state.viewerIndex === 0;
+  el.viewerNext.disabled = state.viewerIndex === state.pages.length - 1;
+  const wanted = state.pages[state.viewerIndex];
+  const blob = await getPageBlob(wanted);
+  if (wanted !== state.pages[state.viewerIndex] || !el.pageViewer.open) return;
+  if (state.viewerUrl) URL.revokeObjectURL(state.viewerUrl);
+  state.viewerUrl = blob ? URL.createObjectURL(blob) : null;
+  if (state.viewerUrl) el.viewerImg.src = state.viewerUrl;
+  else el.viewerImg.removeAttribute('src');
+}
+
+function openViewer(index) {
+  el.pageViewer.showModal();
+  showViewerPage(index);
+}
+
+function closeViewer() {
+  if (el.pageViewer.open) el.pageViewer.close();
+}
+
+async function removeViewerPage() {
+  const name = state.pages[state.viewerIndex];
+  if (!name) return;
+  const ok = await confirmDialog('Retirar esta foto?', 'Ela será apagada deste e de todos os seus aparelhos. Isso não pode ser desfeito.', 'Retirar');
+  if (!ok) return;
+  state.pages = state.pages.filter((n) => n !== name);
+  renderPages();
+  await saveNow();
+  await db.trashImages([name]);
+  state.sync?.schedule(300);
+  if (state.pages.length) showViewerPage(state.viewerIndex);
+  else closeViewer();
 }
 
 // ---------- Conta / Supabase ----------
@@ -1042,6 +1286,7 @@ async function handleSession(session) {
         sb: state.sb,
         onStatus: setStatus,
         onRemoteChange,
+        getUserId: () => state.user?.id,
         onConflict: (n) => toast(n > 1
           ? `${n} anotações foram editadas em dois aparelhos ao mesmo tempo. Guardamos as duas versões de cada uma ("versão de outro aparelho").`
           : 'Uma anotação foi editada em dois aparelhos ao mesmo tempo. Guardamos as duas versões ("versão de outro aparelho").', 8000),
@@ -1127,7 +1372,8 @@ const lock = createLock({
   beforeLock() {
     flushSave();
     stopVoice();
-    if (el.settings.open) el.settings.close();
+    // Diálogos ficam acima de tudo na tela: sem isto, o texto e as fotos apareceriam por cima do bloqueio.
+    document.querySelectorAll('dialog[open]:not(#recovery-dialog)').forEach((d) => d.close());
     el.toast.hidden = true;
   },
   onForgot: forgotPin,
@@ -1238,10 +1484,20 @@ function bindEvents() {
   el.newTop.addEventListener('click', () => { newEntry(); });
   el.sidebarBtn.addEventListener('click', toggleFocus);
   el.list.addEventListener('click', (ev) => {
+    if (ev.target.closest('.list-more')) {
+      state.listLimit += LIST_PAGE;
+      renderList();
+      return;
+    }
     const btn = ev.target.closest('.entry-item');
     if (btn) openEntry(btn.dataset.id);
   });
-  el.search.addEventListener('input', renderList);
+  let searchTimer = null;
+  el.search.addEventListener('input', () => {
+    state.listLimit = LIST_PAGE;
+    clearTimeout(searchTimer);
+    searchTimer = setTimeout(renderList, 80); // espera a pessoa terminar a letra seguinte
+  });
   el.back.addEventListener('click', () => { flushSave(); stopVoice(); showListView(); });
   window.addEventListener('popstate', () => {
     if (el.app.classList.contains('show-editor')) { flushSave(); stopVoice(); showListView(true); }
@@ -1260,6 +1516,31 @@ function bindEvents() {
   el.btnSpeak.addEventListener('click', toggleSpeak);
   el.btnCorrect.addEventListener('click', correctText);
   el.btnDelete.addEventListener('click', deleteCurrent);
+  el.btnPhoto.addEventListener('click', () => choosePhoto(false));
+  el.btnPhotoNew.addEventListener('click', () => choosePhoto(true));
+  el.photoTake.addEventListener('click', () => { el.photoSource.close(); el.pageCamera.click(); });
+  el.photoPick.addEventListener('click', () => { el.photoSource.close(); el.pageInput.click(); });
+  el.pageInput.addEventListener('change', () => { addPages(el.pageInput).catch((e) => console.warn(e)); });
+  el.pageCamera.addEventListener('change', () => { addPages(el.pageCamera).catch((e) => console.warn(e)); });
+  el.pagesStrip.addEventListener('click', (ev) => {
+    const thumb = ev.target.closest('.page-thumb');
+    if (thumb) openViewer(Number(thumb.dataset.index));
+  });
+  el.viewerPrev.addEventListener('click', () => showViewerPage(state.viewerIndex - 1));
+  el.viewerNext.addEventListener('click', () => showViewerPage(state.viewerIndex + 1));
+  el.viewerRemove.addEventListener('click', () => { removeViewerPage().catch((e) => console.warn(e)); });
+  el.viewerClose.addEventListener('click', closeViewer);
+  el.pageViewer.addEventListener('close', () => {
+    if (state.viewerUrl) URL.revokeObjectURL(state.viewerUrl);
+    state.viewerUrl = null;
+    el.viewerImg.removeAttribute('src');
+  });
+  el.pageViewer.addEventListener('keydown', (ev) => {
+    if (ev.key === 'ArrowLeft') showViewerPage(state.viewerIndex - 1);
+    if (ev.key === 'ArrowRight') showViewerPage(state.viewerIndex + 1);
+  });
+  el.btnEntryPdf.addEventListener('click', () => exportPdf('current'));
+  el.btnExportPdf.addEventListener('click', () => exportPdf('all'));
   el.btnAiFolder.addEventListener('click', onChooseAiFolder);
   el.voiceEngine.addEventListener('change', () => setPref('voiceEngine', el.voiceEngine.value));
   el.micSelect.addEventListener('change', () => setPref('mic', el.micSelect.value));

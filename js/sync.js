@@ -9,7 +9,8 @@ const PULL_PAGE = 500;
 // Margem de segurança ao baixar: revisita os últimos 2 minutos para não perder
 // alterações gravadas quase ao mesmo tempo em outro aparelho.
 const PULL_OVERLAP_MS = 2 * 60 * 1000;
-const COLUMNS = 'id,title,content,mood,created_at,updated_at,deleted';
+const COLUMNS = 'id,title,content,mood,pages,created_at,updated_at,deleted';
+const BUCKET = 'pages';
 
 function isNetworkError(e) {
   if (!navigator.onLine) return true;
@@ -30,11 +31,16 @@ const toRow = (e) => ({
   title: e.deleted ? '' : (e.title || ''),
   content: e.deleted ? '' : (e.content || ''),
   mood: e.deleted ? null : (e.mood ?? null),
+  pages: e.deleted ? [] : (e.pages || []),
   created_at: e.created_at,
   deleted: !!e.deleted,
 });
 
-export function createSync({ sb, onStatus, onRemoteChange, onConflict }) {
+const samePages = (a, b) => JSON.stringify(a || []) === JSON.stringify(b || []);
+
+export function createSync({ sb, onStatus, onRemoteChange, onConflict, getUserId }) {
+  const imagePath = (name) => `${getUserId()}/${name}`;
+
   let current = null;   // promessa da sincronização em andamento
   let again = false;    // pediram outra sincronização durante a atual
   let timer = null;
@@ -53,12 +59,13 @@ export function createSync({ sb, onStatus, onRemoteChange, onConflict }) {
     for (const e of known) {
       const srv = byId.get(e.id);
       if (!srv || srv.deleted || srv.updated_at === e.server_updated_at) continue;
-      if ((srv.title || '') === (e.title || '') && (srv.content || '') === (e.content || '')) continue;
+      if ((srv.title || '') === (e.title || '') && (srv.content || '') === (e.content || '') && samePages(srv.pages, e.pages)) continue;
       const copy = {
         id: newId(),
         title: srv.title ? `${srv.title} (versão de outro aparelho)` : 'Versão de outro aparelho',
         content: srv.content || '',
         mood: srv.mood ?? null,
+        pages: srv.pages || [],
         created_at: srv.created_at,
         rev: newId(),
         dirty: 1,
@@ -66,9 +73,43 @@ export function createSync({ sb, onStatus, onRemoteChange, onConflict }) {
         updated_local: new Date().toISOString(),
       };
       await db.put(copy);
+      // Já guardada: se o envio cair agora, a próxima tentativa não pode criar outra cópia da mesma versão.
+      await db.setServerBase(e.id, srv.updated_at);
       copies.push(copy.id);
     }
     return copies;
+  }
+
+  // Sobe as fotos novas antes das anotações que apontam para elas.
+  async function uploadImages() {
+    if (!getUserId?.() || !sb.storage) return 0;
+    let failed = 0;
+    for (const image of await db.getPendingImages()) {
+      const { error } = await sb.storage.from(BUCKET).upload(imagePath(image.name), image.blob, { contentType: 'image/jpeg', upsert: true });
+      if (error) {
+        if (isNetworkError(error)) throw error;
+        failed++;
+        console.warn('Foto não enviada', image.name, error);
+      } else {
+        await db.markImageUploaded(image.name);
+      }
+    }
+    return failed;
+  }
+
+  // Apaga da nuvem as fotos retiradas (privacidade: excluir no app exclui lá também).
+  async function emptyImageTrash() {
+    if (!getUserId?.() || !sb.storage) return;
+    const trash = (await db.getMeta('imageTrash')) || [];
+    if (!trash.length) return;
+    // Uma cópia de conflito pode apontar para a mesma foto: essa continua.
+    const inUse = new Set((await db.getAll()).filter((e) => !e.deleted).flatMap((e) => e.pages || []));
+    const removable = trash.filter((n) => !inUse.has(n));
+    if (removable.length) {
+      const { error } = await sb.storage.from(BUCKET).remove(removable.map(imagePath));
+      if (error) { if (isNetworkError(error)) throw error; console.warn('Fotos não apagadas', error); return; }
+    }
+    await db.clearTrash(trash);
   }
 
   async function sendRows(list) {
@@ -142,11 +183,13 @@ export function createSync({ sb, onStatus, onRemoteChange, onConflict }) {
     current = (async () => {
       onStatus('syncing');
       try {
+        const imagesFailed = await uploadImages();
         const { copies, failed } = await push();
+        await emptyImageTrash();
         const changed = await pull();
         for (const id of copies) if (!changed.includes(id)) changed.push(id);
         const pending = await db.countDirty();
-        if (failed) onStatus('error', new Error(`${failed} anotação(ões) não puderam ser enviadas`));
+        if (failed + imagesFailed) onStatus('error', new Error(`${failed + imagesFailed} item(ns) não puderam ser enviados`));
         else onStatus(pending ? 'pending' : 'synced');
         if (changed.length) onRemoteChange(changed);
         if (copies.length) onConflict?.(copies.length);
@@ -225,5 +268,14 @@ export function createSync({ sb, onStatus, onRemoteChange, onConflict }) {
     return run();
   }
 
-  return { start, stop, schedule, runNow };
+  // Foto que ainda não está neste aparelho: baixa da nuvem. Devolve o Blob ou null.
+  async function downloadImage(name) {
+    if (!getUserId?.() || !sb.storage) return null;
+    const { data, error } = await sb.storage.from(BUCKET).download(imagePath(name));
+    if (error) { if (isNetworkError(error)) return null; console.warn('Foto não baixada', name, error); return null; }
+    await db.putImage({ name, blob: data, uploaded: 1 });
+    return data;
+  }
+
+  return { start, stop, schedule, runNow, downloadImage };
 }

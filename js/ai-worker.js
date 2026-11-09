@@ -23,6 +23,9 @@ const EXAMPLES = [
   ['fui na farmacia comprar remedio mas estava fechada ai voltei pra casa e descansei um pouco', 'Fui na farmácia comprar remédio, mas estava fechada. Aí voltei pra casa e descansei um pouco.'],
   ['sera que meu irmao vai me ligar faz dias que a gente nao se fala e eu sinto falta dele', 'Será que meu irmão vai me ligar? Faz dias que a gente não se fala, e eu sinto falta dele.'],
   ['Na volta do trabalho. Passei no mercado. Comprei pao leite e fruta.', 'Na volta do trabalho, passei no mercado. Comprei pão, leite e fruta.'],
+  ['Depois da aula fui na academia. Mas, nao fiz quase nada. As vezes. Fico sem energia.', 'Depois da aula, fui na academia, mas não fiz quase nada. Às vezes, fico sem energia.'],
+  ['se chover amanha acho que nao vou sair na verdade eu prefiro ficar em casa vendo filme', 'Se chover amanhã, acho que não vou sair. Na verdade, eu prefiro ficar em casa vendo filme.'],
+  ['eu liguei pra ela mas ninguem atendeu entao mandei uma mensagem porque estava preocupado', 'Eu liguei pra ela, mas ninguém atendeu. Então mandei uma mensagem, porque estava preocupado.'],
 ].flatMap(([before, after]) => [{ role: 'user', content: before }, { role: 'assistant', content: after }]);
 
 let libPromise = null;

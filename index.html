@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
-  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data:; style-src 'self'; font-src 'self' https://cdn.jsdelivr.net; manifest-src 'self'; worker-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' https://cdn.jsdelivr.net; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://cdn.jsdelivr.net; img-src 'self' data: blob:; style-src 'self'; font-src 'self' https://cdn.jsdelivr.net; manifest-src 'self'; worker-src 'self'; media-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'">
   <meta name="referrer" content="no-referrer">
   <title>Meu Diário</title>
   <meta name="description" content="Diário pessoal online, sincronizado entre celular, tablet e computador.">
@@ -38,6 +38,7 @@
     <main class="layout">
       <aside id="list-pane" class="list-pane" aria-label="Minhas anotações">
         <button id="btn-new" class="btn primary block" type="button">＋ Escrever agora</button>
+        <button id="btn-photo-new" class="btn block" type="button">📷 Enviar foto do diário</button>
         <div class="search-wrap">
           <input id="search" class="input" type="search" placeholder="Buscar no diário…" aria-label="Buscar no diário" autocomplete="off">
         </div>
@@ -68,12 +69,15 @@
             <button type="button" data-mood="4" aria-pressed="false" title="Bem" aria-label="Bem">🙂</button>
             <button type="button" data-mood="5" aria-pressed="false" title="Muito bem" aria-label="Muito bem">😄</button>
           </div>
+          <div id="pages-strip" class="pages-strip" aria-label="Fotos de páginas do diário" hidden></div>
           <textarea id="entry-content" class="content-input" placeholder="Escreva (ou dite) o que está pensando…" aria-label="Texto da anotação" spellcheck="true" maxlength="200000"></textarea>
           <div id="voice-interim" class="voice-interim" aria-live="polite" hidden></div>
           <div class="editor-actions">
             <button id="btn-voice" class="btn accent" type="button" aria-pressed="false">🎤 Ditar</button>
             <button id="btn-speak" class="btn" type="button" aria-pressed="false">🔊 Ouvir</button>
             <button id="btn-correct" class="btn" type="button" title="Corrige ortografia e gramática. Se houver texto selecionado, corrige só a seleção." hidden>✨ Corrigir</button>
+            <button id="btn-photo" class="btn" type="button">📷 Foto</button>
+            <button id="btn-entry-pdf" class="btn" type="button" title="Baixar esta anotação em PDF">📄 PDF</button>
             <span class="spacer"></span>
             <button id="btn-delete" class="btn danger" type="button">Excluir</button>
           </div>
@@ -230,6 +234,7 @@
         <p class="muted small">Baixe todas as suas anotações em um arquivo. O app lembra você uma vez por mês.</p>
         <p id="backup-last" class="muted small"></p>
         <div class="row-wrap">
+          <button id="btn-export-pdf" class="btn" type="button">Baixar tudo em PDF (com fotos)</button>
           <button id="btn-export-txt" class="btn" type="button">Baixar como texto (.txt)</button>
           <button id="btn-export-json" class="btn" type="button">Baixar como dados (.json)</button>
         </div>
@@ -250,6 +255,32 @@
       <p id="recovery-msg" class="auth-msg" role="alert" hidden></p>
       <button class="btn primary block" type="submit">Salvar nova senha</button>
     </form>
+  </dialog>
+
+  <!-- Fotos de páginas do diário físico -->
+  <input id="page-input" type="file" accept="image/*" multiple hidden>
+  <input id="page-camera" type="file" accept="image/*" capture="environment" hidden>
+
+  <dialog id="photo-source" class="dialog" aria-labelledby="photo-source-title">
+    <form method="dialog" class="dialog-inner">
+      <h2 id="photo-source-title">Adicionar página</h2>
+      <p class="muted small">Para ficar melhor, use um app de digitalização do celular e escolha a imagem na galeria.</p>
+      <button id="photo-take" class="btn primary block" type="button">📷 Tirar foto agora</button>
+      <button id="photo-pick" class="btn block" type="button">🖼️ Escolher da galeria</button>
+      <button class="btn block" value="cancel">Cancelar</button>
+    </form>
+  </dialog>
+
+  <dialog id="page-viewer" class="dialog viewer" aria-label="Foto da página">
+    <div class="viewer-bar">
+      <button id="viewer-prev" class="btn small" type="button" aria-label="Foto anterior">←</button>
+      <span id="viewer-count" class="viewer-count"></span>
+      <button id="viewer-next" class="btn small" type="button" aria-label="Próxima foto">→</button>
+      <span class="spacer"></span>
+      <button id="viewer-remove" class="btn small danger" type="button">Retirar foto</button>
+      <button id="viewer-close" class="btn small" type="button">Fechar</button>
+    </div>
+    <div class="viewer-body"><img id="viewer-img" alt="Foto da página do diário"></div>
   </dialog>
 
   <!-- Revisão da correção feita pela IA -->

@@ -20,6 +20,12 @@ comment on column public.entries.deleted is 'Marcador de exclusão para sincroni
 
 create index if not exists entries_user_updated_idx on public.entries (user_id, updated_at);
 
+-- Fotos de páginas do diário físico: lista ordenada de nomes de arquivo no bucket "pages".
+alter table public.entries add column if not exists pages jsonb not null default '[]'::jsonb;
+alter table public.entries drop constraint if exists entries_pages_check;
+alter table public.entries add constraint entries_pages_check
+  check (jsonb_typeof(pages) = 'array' and jsonb_array_length(pages) <= 50);
+
 -- updated_at é SEMPRE definido pelo servidor (o relógio do celular pode estar errado).
 -- user_id também não pode ser trocado depois de criado.
 create or replace function public.entries_before_write()
@@ -37,6 +43,7 @@ begin
     new.title := '';
     new.content := '';
     new.mood := null;
+    new.pages := '[]'::jsonb;
   end if;
   return new;
 end;
@@ -78,6 +85,36 @@ create policy "entries_delete_own" on public.entries
 -- Visitantes não autenticados não têm acesso algum.
 revoke all on public.entries from anon;
 grant select, insert, update, delete on public.entries to authenticated;
+
+-- ---------------------------------------------------------------------
+-- Fotos de páginas: bucket privado; cada pessoa só acessa a própria pasta (<id do usuário>/<arquivo>.jpg).
+-- ---------------------------------------------------------------------
+insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+values ('pages', 'pages', false, 8388608, array['image/jpeg'])
+on conflict (id) do update
+  set public = false, file_size_limit = 8388608, allowed_mime_types = array['image/jpeg'];
+
+drop policy if exists "pages_select_own" on storage.objects;
+drop policy if exists "pages_insert_own" on storage.objects;
+drop policy if exists "pages_update_own" on storage.objects;
+drop policy if exists "pages_delete_own" on storage.objects;
+
+create policy "pages_select_own" on storage.objects
+  for select to authenticated
+  using (bucket_id = 'pages' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "pages_insert_own" on storage.objects
+  for insert to authenticated
+  with check (bucket_id = 'pages' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "pages_update_own" on storage.objects
+  for update to authenticated
+  using (bucket_id = 'pages' and (storage.foldername(name))[1] = (select auth.uid()::text))
+  with check (bucket_id = 'pages' and (storage.foldername(name))[1] = (select auth.uid()::text));
+
+create policy "pages_delete_own" on storage.objects
+  for delete to authenticated
+  using (bucket_id = 'pages' and (storage.foldername(name))[1] = (select auth.uid()::text));
 
 -- ---------------------------------------------------------------------
 -- "Toque" para o projeto grátis não ser pausado por falta de uso.
