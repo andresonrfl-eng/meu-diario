@@ -19,6 +19,10 @@ const t = run('ai-text.test.mjs');
 console.log(t.out.split('\n').filter((l) => l.startsWith('ok') || l.includes('PASSARAM')).join('\n'));
 if (!t.ok) { console.error(t.out); process.exit(1); }
 
+const h = run('highlights.test.mjs');
+console.log(h.out.split('\n').filter((l) => l.startsWith('ok') || l.includes('PASSARAM')).join('\n'));
+if (!h.ok) { console.error(h.out); process.exit(1); }
+
 const f = run('pages.test.mjs');
 console.log(f.out.split('\n').filter((l) => l.startsWith('ok') || l.includes('PASSARAM')).join('\n'));
 if (!f.ok) { console.error(f.out); process.exit(1); }

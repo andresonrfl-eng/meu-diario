@@ -9,7 +9,7 @@ const PULL_PAGE = 500;
 // Margem de segurança ao baixar: revisita os últimos 2 minutos para não perder
 // alterações gravadas quase ao mesmo tempo em outro aparelho.
 const PULL_OVERLAP_MS = 2 * 60 * 1000;
-const COLUMNS = 'id,title,content,mood,pages,created_at,updated_at,deleted';
+const COLUMNS = 'id,title,content,mood,pages,highlights,created_at,updated_at,deleted';
 const BUCKET = 'pages';
 
 function isNetworkError(e) {
@@ -32,6 +32,7 @@ const toRow = (e) => ({
   content: e.deleted ? '' : (e.content || ''),
   mood: e.deleted ? null : (e.mood ?? null),
   pages: e.deleted ? [] : (e.pages || []),
+  highlights: e.deleted ? [] : (e.highlights || []),
   created_at: e.created_at,
   deleted: !!e.deleted,
 });
@@ -59,13 +60,15 @@ export function createSync({ sb, onStatus, onRemoteChange, onConflict, getUserId
     for (const e of known) {
       const srv = byId.get(e.id);
       if (!srv || srv.deleted || srv.updated_at === e.server_updated_at) continue;
-      if ((srv.title || '') === (e.title || '') && (srv.content || '') === (e.content || '') && samePages(srv.pages, e.pages)) continue;
+      if ((srv.title || '') === (e.title || '') && (srv.content || '') === (e.content || '') && samePages(srv.pages, e.pages)
+        && samePages(srv.highlights, e.highlights)) continue;
       const copy = {
         id: newId(),
         title: srv.title ? `${srv.title} (versão de outro aparelho)` : 'Versão de outro aparelho',
         content: srv.content || '',
         mood: srv.mood ?? null,
         pages: srv.pages || [],
+        highlights: srv.highlights || [],
         created_at: srv.created_at,
         rev: newId(),
         dirty: 1,

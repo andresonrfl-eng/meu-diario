@@ -18,6 +18,7 @@ Outros recursos:
 - Funciona **sem internet** e envia tudo quando a conexão volta.
 - Salva sozinho enquanto você escreve.
 - Humor do dia (😢 a 😄), busca e cópia de segurança (.pdf / .txt / .json).
+- **Marca-texto:** selecione um trecho e toque em amarelo, verde ou vermelho para destacar (aparece também no PDF).
 - **Fotos do diário físico:** tire uma foto ou escolha uma digitalização da galeria e ela vira uma anotação, sincronizada entre os aparelhos.
 - Pode ser **instalado como aplicativo** na tela inicial.
 - Cada pessoa só enxerga as próprias anotações (Row Level Security no banco).

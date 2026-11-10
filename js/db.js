@@ -138,6 +138,7 @@ export function applyRemote(row) {
         content: row.content ?? '',
         mood: row.mood ?? null,
         pages,
+        highlights: Array.isArray(row.highlights) ? row.highlights : [],
         created_at: row.created_at,
         server_updated_at: row.updated_at,
         updated_local: row.updated_at,

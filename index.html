@@ -70,7 +70,17 @@
             <button type="button" data-mood="5" aria-pressed="false" title="Muito bem" aria-label="Muito bem">😄</button>
           </div>
           <div id="pages-strip" class="pages-strip" aria-label="Fotos de páginas do diário" hidden></div>
-          <textarea id="entry-content" class="content-input" placeholder="Escreva (ou dite) o que está pensando…" aria-label="Texto da anotação" spellcheck="true" maxlength="200000"></textarea>
+          <div id="hl-tools" class="hl-tools" role="group" aria-label="Marca-texto">
+            <span class="hl-label muted small">Marcar:</span>
+            <button type="button" class="hl-btn" data-hl="yellow" aria-label="Marcar em amarelo" title="Selecione o texto e toque na cor"><span class="swatch hl-yellow"></span></button>
+            <button type="button" class="hl-btn" data-hl="green" aria-label="Marcar em verde" title="Selecione o texto e toque na cor"><span class="swatch hl-green"></span></button>
+            <button type="button" class="hl-btn" data-hl="red" aria-label="Marcar em vermelho" title="Selecione o texto e toque na cor"><span class="swatch hl-red"></span></button>
+            <button type="button" class="hl-btn hl-erase" data-hl="none" title="Tira a marcação do trecho selecionado">Desmarcar</button>
+          </div>
+          <div class="content-wrap">
+            <div id="hl-layer" class="hl-layer" aria-hidden="true" hidden></div>
+            <textarea id="entry-content" class="content-input" placeholder="Escreva (ou dite) o que está pensando…" aria-label="Texto da anotação" spellcheck="true" maxlength="200000"></textarea>
+          </div>
           <div id="voice-interim" class="voice-interim" aria-live="polite" hidden></div>
           <div class="editor-actions">
             <button id="btn-voice" class="btn accent" type="button" aria-pressed="false">🎤 Ditar</button>

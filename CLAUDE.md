@@ -14,11 +14,12 @@ no topo do HISTORICO.md** (data, o que mudou, por quê, pendências).
 PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o passo a passo.
 - `js/app.js` interface · `js/db.js` IndexedDB · `js/sync.js` sincronização · `js/voice.js` voz · `js/lock.js` PIN
 - `js/ai.js` IA local (pasta, worker, ditado Whisper) · `js/ai-worker.js` modelos · `js/ai-text.js` regras de texto da IA · `js/mic-worklet.js` microfone
+- `js/highlights.js` regras do marca-texto (posições em `entries.highlights`, desenhadas na camada `#hl-layer` atrás da caixa de texto)
 - `js/pdf.js` exportação em PDF · `js/pages.js` preparo das fotos de páginas (arquivos no bucket privado `pages`, lista em `entries.pages`)
 - `js/config.js` URL + chave pública do Supabase (vazio = modo só no aparelho)
 - `supabase/schema.sql` tabela `entries` + RLS + trigger + `ping()` (idempotente)
 - `.github/workflows/manter-acordado.yml` toque no banco a cada 3 dias (plano grátis pausa após 7 dias)
-- `npm test` = `tests/sync.test.mjs` (cenários) + `tests/ai-text.test.mjs` + `tests/pages.test.mjs` (fotos e PDF) + `tests/two-devices.test.mjs` (simulação de 2 aparelhos)
+- `npm test` = `tests/sync.test.mjs` (cenários) + `tests/ai-text.test.mjs` + `tests/highlights.test.mjs` + `tests/pages.test.mjs` (fotos e PDF) + `tests/two-devices.test.mjs` (simulação de 2 aparelhos)
 
 ## Regras importantes
 - **Sempre** que mudar qualquer arquivo do app, aumente `CACHE` em `sw.js` e `APP_VERSION` em `js/app.js`
@@ -34,6 +35,8 @@ PWA estática (sem build) + Supabase. Veja README.md para a arquitetura e o pass
   mudou o texto, guarda a versão dele como anotação separada. Não remova isso (evita perder texto).
 - Gravações vindas da tela usam `db.putLocal` (preserva a base do servidor que está no banco); `db.put` direto causa cópias falsas de conflito.
 - Excluir anotação ou foto precisa apagar a imagem da nuvem também (`db.trashImages`). Privacidade.
+- Marca-texto: qualquer mudança programática no texto precisa passar por `onEdit`/`syncHighlightsToText` (senão as marcações saem do lugar).
+  A camada `#hl-layer` tem de ter exatamente a mesma fonte, espaçamento e largura da caixa de texto.
 - Rode `npm test` depois de mexer em `db.js` ou `sync.js`.
 - Diálogos de confirmação: não dependa só do evento `close` do `<dialog>` (não dispara em alguns navegadores);
   use `confirmDialog` em `app.js`.

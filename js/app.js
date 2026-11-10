@@ -12,7 +12,10 @@ import {
 import { splitForCorrection, isSafeCorrection, diffWords } from './ai-text.js';
 import { createPdf } from './pdf.js';
 import { preparePage, MAX_PAGES, pagesLabel, samePages } from './pages.js';
-const APP_VERSION = '1.3';
+import {
+  normalizeHighlights, applyHighlight, rebaseHighlights, rebaseWithParts, sameHighlights, highlightSegments, trimSelection, trimHighlights,
+} from './highlights.js';
+const APP_VERSION = '1.4';
 const SUPABASE_JS = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/+esm';
 const CONFIGURED = Boolean(SUPABASE_URL && SUPABASE_ANON_KEY);
 const SAVE_DELAY_MS = 700;
@@ -47,6 +50,8 @@ const el = {
   saveState: $('#save-state'),
   title: $('#entry-title'),
   content: $('#entry-content'),
+  hlLayer: $('#hl-layer'),
+  hlTools: $('#hl-tools'),
   moodBtns: [...document.querySelectorAll('.mood button[data-mood]')],
   interim: $('#voice-interim'),
   btnVoice: $('#btn-voice'),
@@ -139,6 +144,9 @@ const state = {
   preparingVoice: false,
   correcting: false,
   aiFolderSet: false,
+  highlights: [],        // marca-texto da anotação aberta: [{ start, end, color }]
+  hlText: '',            // texto ao qual as posições das marcações se referem
+  lastSel: null,         // última seleção feita no texto (o toque no botão pode desfazer a seleção no celular)
   listLimit: 300,        // a lista desenha aos poucos: quem tem milhares de anotações não sente lentidão
   pages: [],             // fotos da anotação aberta (nomes dos arquivos)
   pagesToken: 0,
@@ -401,6 +409,8 @@ function showEditorView() {
   if (el.app.classList.contains('show-editor')) return;
   el.app.classList.add('show-editor');
   if (isMobile()) history.pushState({ view: 'editor' }, '');
+  // No celular o editor estava escondido: mede a camada do marca-texto só depois de aparecer.
+  syncHlLayer();
 }
 function showListView(fromPopState = false) {
   if (!el.app.classList.contains('show-editor')) return;
@@ -426,6 +436,9 @@ function fillEditor(entry) {
   el.date.textContent = formatWhen(entry.created_at);
   el.title.value = entry.title || '';
   el.content.value = entry.content || '';
+  state.highlights = normalizeHighlights(entry.highlights, el.content.value.length);
+  state.hlText = el.content.value;
+  state.lastSel = null;
   setMoodUI(entry.mood);
   state.pages = [...(entry.pages || [])];
   renderPages();
@@ -433,6 +446,7 @@ function fillEditor(entry) {
   const len = el.content.value.length;
   try { el.content.setSelectionRange(len, len); } catch { /* ignore */ }
   el.content.scrollTop = 0;
+  renderHighlights();
 }
 
 function stopVoice() {
@@ -491,6 +505,10 @@ function closeEditor() {
   state.draft = null;
   state.pages = [];
   renderPages();
+  state.highlights = [];
+  state.hlText = '';
+  state.lastSel = null;
+  renderHighlights();
   el.editor.hidden = true;
   el.editorEmpty.hidden = false;
   renderGreeting();
@@ -499,6 +517,7 @@ function closeEditor() {
 }
 
 function onEdit() {
+  syncHighlightsToText();
   noteActivity();
   el.saveState.textContent = 'Editando…';
   clearTimeout(state.saveTimer);
@@ -511,6 +530,8 @@ function saveNow() {
   state.saveTimer = null;
   const cur = currentEntry();
   if (!cur) return state.saveChain;
+  syncHighlightsToText();
+  const highlights = state.highlights;
   const title = el.title.value;
   const content = el.content.value;
   const mood = state.mood;
@@ -520,7 +541,7 @@ function saveNow() {
     el.saveState.textContent = 'Nova anotação';
     return state.saveChain;
   }
-  if (!isDraft && cur.title === title && cur.content === content && (cur.mood ?? null) === mood && samePages(cur.pages, pages)) {
+  if (!isDraft && cur.title === title && cur.content === content && (cur.mood ?? null) === mood && samePages(cur.pages, pages) && sameHighlights(cur.highlights, highlights)) {
     el.saveState.textContent = cur.dirty ? 'Salvo no aparelho' : 'Salvo';
     return state.saveChain;
   }
@@ -530,6 +551,7 @@ function saveNow() {
     content,
     mood,
     pages,
+    highlights,
     rev: newRev(),
     dirty: 1,
     updated_local: new Date().toISOString(),
@@ -636,6 +658,13 @@ async function onRemoteChange(ids, { fromTab = false } = {}) {
         el.content.value = rec.content;
         differs = true;
         try { el.content.setSelectionRange(selStart, selStart); } catch { /* ignore */ }
+      }
+      const remoteHl = normalizeHighlights(rec.highlights, el.content.value.length);
+      if (state.hlText !== el.content.value || !sameHighlights(remoteHl, state.highlights)) {
+        if (!sameHighlights(remoteHl, state.highlights)) differs = true;
+        state.highlights = remoteHl;
+        state.hlText = el.content.value;
+        renderHighlights();
       }
       if ((rec.mood ?? null) !== state.mood) { setMoodUI(rec.mood); differs = true; }
       if (!state.addingPages && !samePages(rec.pages, state.pages)) {
@@ -805,6 +834,7 @@ async function correctText() {
     ta.readOnly = true; // o texto não pode mudar enquanto a IA revisa
     await flushSave();
     const snapshot = ta.value;
+    syncHighlightsToText();
     showInterim('⏳ Preparando a correção…');
     await localAI.loadCorrector();
 
@@ -842,7 +872,12 @@ async function correctText() {
       toast('O texto mudou enquanto a IA revisava. Nada foi alterado.', 6000);
       return;
     }
+    // As marcações acompanham as palavras corrigidas.
+    const movedHighlights = rebaseWithParts(state.highlights, preview, start);
     ta.setRangeText(corrected, start, end, 'preserve');
+    state.highlights = normalizeHighlights(movedHighlights, ta.value.length);
+    state.hlText = ta.value;
+    renderHighlights();
     onEdit();
     toast('Correções aplicadas ✓');
   } catch (e) {
@@ -930,6 +965,7 @@ function applyFocus(on) {
   el.sidebarBtn.setAttribute('aria-pressed', String(on));
   el.sidebarBtn.setAttribute('aria-label', label);
   el.sidebarBtn.title = `${label} (Ctrl+B)`;
+  syncHlLayer(); // a caixa de texto mudou de largura
 }
 function toggleFocus() {
   if (isMobile()) return; // no celular a lista e o editor já são telas separadas
@@ -941,6 +977,7 @@ function applyFont(px) {
   document.documentElement.style.setProperty('--editor-font', v + 'px');
   el.fontValue.textContent = String(v);
   setPref('font', v);
+  syncHlLayer();
   return v;
 }
 function currentFont() {
@@ -984,7 +1021,7 @@ async function exportData(kind) {
   if (!items.length) { toast('Não há anotações para exportar.'); return; }
   const stamp = new Date().toISOString().slice(0, 10);
   if (kind === 'json') {
-    const data = items.map(({ id, title, content, mood, created_at, pages }) => ({ id, title, content, mood, created_at, pages: pages || [] }));
+    const data = items.map(({ id, title, content, mood, created_at, pages, highlights }) => ({ id, title, content, mood, created_at, pages: pages || [], highlights: highlights || [] }));
     download(`meu-diario-${stamp}.json`, JSON.stringify({ app: 'meu-diario', version: 1, exported_at: new Date().toISOString(), entries: data }, null, 2), 'application/json');
   } else {
     const txt = items.slice().reverse().map((e) => {
@@ -1019,6 +1056,7 @@ async function exportPdf(scope) {
       whenText: formatWhen(e.created_at),
       moodText: MOOD_NAMES[e.mood] || '',
       pages: e.pages || [],
+      highlights: normalizeHighlights(e.highlights, (e.content || '').length),
     })), {
       getPage: async (name) => {
         const blob = await getPageBlob(name);
@@ -1039,6 +1077,94 @@ async function exportPdf(scope) {
     el.btnEntryPdf.disabled = false;
     el.btnExportPdf.disabled = false;
   }
+}
+
+// ---------- Marca-texto ----------
+// A caixa de texto não pinta pedaços do texto. Por trás dela fica uma camada com o mesmo texto
+// (invisível) e as marcações coloridas, alinhada letra por letra e rolando junto.
+function renderHighlights() {
+  hlRenderPending = false;
+  const layer = el.hlLayer;
+  if (!state.highlights.length) {
+    if (layer.firstChild) layer.replaceChildren();
+    layer.hidden = true;
+    return;
+  }
+  layer.hidden = false;
+  const frag = document.createDocumentFragment();
+  for (const seg of highlightSegments(el.content.value, state.highlights)) {
+    if (seg.color) {
+      const mark = document.createElement('mark');
+      mark.className = `hl hl-${seg.color}`;
+      mark.textContent = seg.text;
+      frag.append(mark);
+    } else {
+      frag.append(document.createTextNode(seg.text));
+    }
+  }
+  frag.append(document.createTextNode('\n\u200b')); // a última linha, mesmo vazia, ocupa espaço como na caixa de texto
+  layer.replaceChildren(frag);
+  syncHlLayer();
+}
+
+function syncHlLayer() {
+  if (el.hlLayer.hidden) return;
+  // Mesma largura útil da caixa de texto (sem a barra de rolagem), para quebrar as linhas nos mesmos lugares.
+  el.hlLayer.style.width = `${el.content.clientWidth}px`;
+  el.hlLayer.style.height = `${el.content.clientHeight}px`;
+  el.hlLayer.scrollTop = el.content.scrollTop;
+}
+
+// Qualquer mudança no texto (digitar, ditar, colar, desfazer) move as marcações junto.
+function syncHighlightsToText() {
+  const now = el.content.value;
+  if (now === state.hlText) return;
+  const had = state.highlights.length;
+  state.highlights = rebaseHighlights(state.highlights, state.hlText, now);
+  state.hlText = now;
+  if (had) scheduleHighlightRender();
+}
+
+// Ao digitar rápido, redesenha no máximo uma vez por quadro de tela.
+let hlRenderPending = false;
+function scheduleHighlightRender() {
+  if (hlRenderPending) return;
+  hlRenderPending = true;
+  const run = () => { if (!hlRenderPending) return; hlRenderPending = false; renderHighlights(); };
+  requestAnimationFrame(run);
+  setTimeout(run, 120); // se a tela estiver pausada (app em segundo plano), desenha mesmo assim
+}
+
+function rememberSelection() {
+  const ta = el.content;
+  if (document.activeElement === ta && ta.selectionEnd > ta.selectionStart) {
+    state.lastSel = { start: ta.selectionStart, end: ta.selectionEnd, text: ta.value };
+  }
+}
+
+function markSelection(color) {
+  if (busyCorrecting() || !currentEntry()) return;
+  const ta = el.content;
+  syncHighlightsToText();
+  let start = ta.selectionStart;
+  let end = ta.selectionEnd;
+  if (end <= start && state.lastSel && state.lastSel.text === ta.value) ({ start, end } = state.lastSel);
+  [start, end] = trimSelection(ta.value, start, end);
+  if (end <= start) {
+    toast(color ? 'Selecione um trecho do texto e depois toque na cor.' : 'Selecione o trecho marcado que quer desmarcar.', 4500);
+    return;
+  }
+  const next = trimHighlights(applyHighlight(state.highlights, start, end, color), ta.value);
+  if (sameHighlights(next, state.highlights)) {
+    if (!color) toast('Esse trecho não tem marcação.');
+    return;
+  }
+  state.highlights = next;
+  state.lastSel = null;
+  renderHighlights();
+  // Tira a seleção para a cor aparecer (o azul da seleção cobre o destaque).
+  try { ta.setSelectionRange(end, end); } catch { /* ignore */ }
+  onEdit();
 }
 
 // ---------- Fotos de páginas do diário físico ----------
@@ -1505,6 +1631,19 @@ function bindEvents() {
 
   el.title.addEventListener('input', onEdit);
   el.content.addEventListener('input', onEdit);
+  el.content.addEventListener('scroll', syncHlLayer, { passive: true });
+  if ('ResizeObserver' in window) new ResizeObserver(() => syncHlLayer()).observe(el.content);
+  window.addEventListener('resize', syncHlLayer);
+  document.addEventListener('selectionchange', rememberSelection);
+  el.content.addEventListener('select', rememberSelection);
+  // Tocar no botão não pode tirar o foco (nem a seleção) do texto.
+  const keepSelection = (ev) => { if (ev.target.closest('.hl-btn')) ev.preventDefault(); };
+  el.hlTools.addEventListener('pointerdown', keepSelection);
+  el.hlTools.addEventListener('mousedown', keepSelection);
+  el.hlTools.addEventListener('click', (ev) => {
+    const btn = ev.target.closest('.hl-btn');
+    if (btn) markSelection(btn.dataset.hl === 'none' ? null : btn.dataset.hl);
+  });
   for (const b of el.moodBtns) {
     b.addEventListener('click', () => {
       const m = Number(b.dataset.mood);

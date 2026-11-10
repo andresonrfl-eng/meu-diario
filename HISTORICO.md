@@ -6,7 +6,8 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 ---
 
 ## Situação atual (resumo rápido)
-- **Versão: 1.3** (`APP_VERSION = '1.3'` em `js/app.js`, `CACHE = 'diario-final-1.3'` em `sw.js`).
+- **Versão: 1.4** (`APP_VERSION = '1.4'` em `js/app.js`, `CACHE = 'diario-final-1.4'` em `sw.js`).
+- **Marca-texto** (1.4): amarelo, verde e vermelho; coluna `entries.highlights` (posições no texto).
 - **Fotos de páginas** (1.3): bucket privado `pages` no Supabase + coluna `entries.pages`; **PDF** com jsPDF 4.2.1 pelo jsDelivr.
   A numeração foi "zerada" no 1.0 a pedido do usuário (antes ia até 1.5.1).
 - **IA local no PC**: Whisper Large v3 Turbo (ditado) + Gemma 4 E2B (botão ✨ Corrigir), via WebGPU. Modelos em `D:\MeuDiario-IA`
@@ -44,6 +45,25 @@ do Claude Code saiba o que já foi feito. **Atualize ao final de cada sessão.**
 - Exportar em PDF para mostrar na consulta.
 
 ---
+
+## Sessão 4 — 10/11/2026 — Marca-texto (v1.4)
+Pedido: selecionar um trecho, apertar um botão e ele ficar destacado, em amarelo, verde ou vermelho; testar e revisar antes de entregar.
+
+**Como funciona:** a caixa de texto não pinta trechos, então há uma camada por trás (`#hl-layer`) com o mesmo texto invisível e as
+marcações. Ela tem a mesma fonte, o mesmo espaçamento e a mesma largura útil, e rola junto. A caixa fica com fundo transparente, e o fundo passou para `.content-wrap`.
+As marcações são posições (`{ start, end, color }`) em `entry.highlights` (`js/highlights.js`). Toda mudança no texto passa por `syncHighlightsToText`
+(digitar, ditar, colar, desfazer), que move as posições: escrever logo antes ou depois não estica o destaque; dentro, estica. A correção da IA usa
+`rebaseWithParts` (diferença palavra por palavra), então a palavra corrigida continua marcada. "Desmarcar" tira a cor do trecho selecionado;
+espaços nas pontas nunca ficam marcados. Os botões não roubam a seleção (pointerdown/mousedown com preventDefault + última seleção guardada).
+Sincroniza (coluna `highlights` no Supabase, entra na comparação de conflito) e aparece no PDF (retângulos atrás das linhas).
+O redesenho é agrupado por quadro de tela (`scheduleHighlightRender`).
+
+**Testes:** `tests/highlights.test.mjs` (13 casos + simulação de 4.000 edições aleatórias) e casos 11–12 de `tests/pages.test.mjs` (sincronização e PDF).
+No navegador: alinhamento conferido deixando o texto da camada visível em vermelho por baixo (sem deslocamento) no PC, na tela cheia, com letra maior,
+no tema escuro e no celular; digitar antes, dentro e depois; desmarcar parte; recarregar.
+**Bugs achados e corrigidos antes de entregar:** desmarcar parte deixava um espaço destacado; no celular e ao alternar a tela cheia a camada ficava
+com a largura antiga até a tela ser redesenhada (agora mede na hora); texto enorme (120 mil letras, 600 marcações) levava 26 ms por tecla e agora leva 0,7 ms.
+**Não testado:** seleção por toque em celular real (Android e iPhone), em que o comportamento da seleção ao tocar no botão varia.
 
 ## Sessão 3 (continuação) — PDF, fotos de páginas, revisão geral e correção melhor (v1.3)
 Pedido: exportar em PDF, enviar fotos/digitalizações de páginas do diário físico como anotação, revisar erros e testar bugs e desempenho.

@@ -26,6 +26,12 @@ alter table public.entries drop constraint if exists entries_pages_check;
 alter table public.entries add constraint entries_pages_check
   check (jsonb_typeof(pages) = 'array' and jsonb_array_length(pages) <= 50);
 
+-- Marca-texto: trechos destacados [{ "start": 0, "end": 10, "color": "yellow" }] (posições no texto).
+alter table public.entries add column if not exists highlights jsonb not null default '[]'::jsonb;
+alter table public.entries drop constraint if exists entries_highlights_check;
+alter table public.entries add constraint entries_highlights_check
+  check (jsonb_typeof(highlights) = 'array' and jsonb_array_length(highlights) <= 2000);
+
 -- updated_at é SEMPRE definido pelo servidor (o relógio do celular pode estar errado).
 -- user_id também não pode ser trocado depois de criado.
 create or replace function public.entries_before_write()
@@ -44,6 +50,7 @@ begin
     new.content := '';
     new.mood := null;
     new.pages := '[]'::jsonb;
+    new.highlights := '[]'::jsonb;
   end if;
   return new;
 end;

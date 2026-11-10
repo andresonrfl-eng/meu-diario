@@ -15,12 +15,39 @@ const REPLACEMENTS = [
 
 // As fontes padrão do PDF só têm o alfabeto latino: acentos do português funcionam;
 // emojis e outros símbolos saem, em vez de virar caracteres estranhos.
-export function pdfSafe(text) {
+function pdfChars(text) {
   let t = String(text ?? '').normalize('NFC').replace(/\r\n?/g, '\n');
   for (const [re, rep] of REPLACEMENTS) t = t.replace(re, rep);
   // eslint-disable-next-line no-control-regex
-  t = t.replace(/[^\n\t\x20-\x7E¡-ÿ]/g, '');
-  return t.replace(/[ \t]+$/gm, '').replace(/^[ \t]+$/gm, '');
+  return t.replace(/[^\n\t\x20-\x7E¡-ÿ]/g, '');
+}
+
+export function pdfSafe(text) {
+  return pdfChars(text).replace(/[ \t]+$/gm, '').replace(/^[ \t]+$/gm, '');
+}
+
+const MARK_RGB = { yellow: [255, 226, 110], green: [188, 230, 190], red: [250, 196, 190] };
+
+// Limpa o texto pedaço por pedaço para as marcações continuarem nas posições certas.
+export function pdfBodyWithMarks(text, highlights) {
+  const source = String(text ?? '');
+  const segs = [];
+  let at = 0;
+  for (const h of highlights || []) {
+    if (h.start < at || h.end <= h.start) continue;
+    if (h.start > at) segs.push({ text: source.slice(at, h.start), color: null });
+    segs.push({ text: source.slice(h.start, h.end), color: h.color });
+    at = h.end;
+  }
+  segs.push({ text: source.slice(at), color: null });
+  let clean = '';
+  const marks = [];
+  for (const seg of segs) {
+    const c = pdfChars(seg.text);
+    if (seg.color && c) marks.push({ start: clean.length, end: clean.length + c.length, color: seg.color });
+    clean += c;
+  }
+  return { clean, marks };
 }
 
 let libPromise = null;
@@ -65,6 +92,33 @@ export async function buildPdf(jsPDF, entries, { getPage, onProgress } = {}) {
     y += after;
   }
 
+  // Texto da anotação com o marca-texto desenhado por trás das linhas.
+  function writeBody(text, highlights) {
+    const { clean, marks } = pdfBodyWithMarks(text, highlights);
+    if (!clean.trim()) return;
+    const size = 12;
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(size);
+    const step = lineHeight(size);
+    let cursor = 0;
+    for (const line of doc.splitTextToSize(clean, width)) {
+      if (y + step > bottom) newPage();
+      let idx = clean.indexOf(line, cursor);
+      if (idx < 0) idx = cursor;
+      cursor = idx + line.length;
+      for (const m of marks) {
+        const a = Math.max(m.start, idx) - idx;
+        const b = Math.min(m.end, idx + line.length) - idx;
+        if (b <= a) continue;
+        doc.setFillColor(...MARK_RGB[m.color]);
+        doc.rect(PAGE.margin + doc.getTextWidth(line.slice(0, a)), y + step * 0.1, doc.getTextWidth(line.slice(a, b)), step * 0.86, 'F');
+      }
+      doc.setTextColor(40, 44, 40);
+      doc.text(line.replace(/[ \t]+$/, ''), PAGE.margin, y + step * 0.75);
+      y += step;
+    }
+  }
+
   for (let i = 0; i < entries.length; i++) {
     const e = entries[i];
     if (i > 0) newPage();
@@ -72,7 +126,7 @@ export async function buildPdf(jsPDF, entries, { getPage, onProgress } = {}) {
     if (e.title?.trim()) write(e.title.trim(), { size: 18, style: 'bold', after: 2 });
     if (e.moodText) write(`Humor: ${e.moodText}`, { size: 10, color: [110, 115, 110], after: 2 });
     y += 2;
-    write(e.content || '');
+    writeBody(e.content || '', e.highlights);
 
     for (const name of e.pages || []) {
       const data = getPage ? await getPage(name) : null;

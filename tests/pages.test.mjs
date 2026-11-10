@@ -11,7 +11,7 @@ globalThis.removeEventListener = () => {};
 const P = new URL('../js/', import.meta.url).href;
 const db = await import(`${P}db.js`);
 const { createSync } = await import(`${P}sync.js`);
-const { pdfSafe } = await import(`${P}pdf.js`);
+const { pdfSafe, pdfBodyWithMarks } = await import(`${P}pdf.js`);
 const { samePages, pagesLabel } = await import(`${P}pages.js`);
 
 const rows = new Map();
@@ -170,6 +170,43 @@ assert.equal(samePages(['a'], ['a']), true);
 assert.equal(samePages(undefined, []), true);
 assert.equal(samePages(['a', 'b'], ['b', 'a']), false);
 console.log('ok 10 texto seguro para o PDF');
+
+// 11 marca-texto: sobe, desce, entra no conflito e some ao excluir
+{
+  const hl = [{ start: 0, end: 4, color: 'yellow' }];
+  await db.putLocal(entry('h1', [], { content: 'Hoje foi bom', highlights: hl }));
+  await sync.runNow();
+  assert.deepEqual(rows.get('h1').highlights, hl, 'marcações sobem com a anotação');
+  rows.set('h2', { id: 'h2', title: '', content: 'Outro aparelho', mood: null, pages: [], highlights: [{ start: 6, end: 14, color: 'green' }], created_at: stamp(), updated_at: stamp(), deleted: false });
+  rows.set('h3', { id: 'h3', title: '', content: 'Sem coluna', mood: null, pages: [], created_at: stamp(), updated_at: stamp(), deleted: false });
+  await sync.runNow();
+  assert.deepEqual((await db.get('h2')).highlights, [{ start: 6, end: 14, color: 'green' }], 'marcações descem');
+  assert.deepEqual((await db.get('h3')).highlights, [], 'linha antiga sem marcações vira lista vazia');
+  // só a marcação mudou nos dois aparelhos: guarda as duas versões
+  conflicts = 0;
+  rows.set('h1', { ...rows.get('h1'), highlights: [{ start: 5, end: 8, color: 'red' }], updated_at: stamp() });
+  await db.putLocal({ ...(await db.get('h1')), highlights: [{ start: 9, end: 12, color: 'green' }], rev: 'h1-2', dirty: 1 });
+  await sync.runNow();
+  assert.equal(conflicts, 1, 'marcação diferente nos dois aparelhos não se perde');
+  const copy = [...rows.values()].find((r) => r.content === 'Hoje foi bom' && r.id !== 'h1');
+  assert.deepEqual(copy.highlights, [{ start: 5, end: 8, color: 'red' }]);
+  await db.putLocal({ ...(await db.get('h1')), title: '', content: '', highlights: [], deleted: true, dirty: 1, rev: 'h1-3' });
+  await sync.runNow();
+  assert.deepEqual(rows.get('h1').highlights, [], 'excluída não guarda marcações');
+  console.log('ok 11 marca-texto sincroniza entre aparelhos');
+}
+
+// 12 PDF com marca-texto: posições continuam certas mesmo quando o PDF tira emojis
+{
+  const text = 'Oi 😄 tudo bem? Hoje… ótimo';
+  const start = text.indexOf('tudo');
+  const hl = [{ start, end: start + 'tudo bem'.length, color: 'yellow' }, { start: text.indexOf('ótimo'), end: text.length, color: 'red' }];
+  const { clean, marks } = pdfBodyWithMarks(text, hl);
+  assert.equal(clean, 'Oi  tudo bem? Hoje... ótimo');
+  assert.deepEqual(marks.map((m) => `${m.color}:${clean.slice(m.start, m.end)}`), ['yellow:tudo bem', 'red:ótimo']);
+  assert.equal(pdfBodyWithMarks('sem nada', []).marks.length, 0);
+  console.log('ok 12 marca-texto no PDF');
+}
 
 console.log('TODOS OS TESTES DE FOTOS PASSARAM');
 process.exit(0);
