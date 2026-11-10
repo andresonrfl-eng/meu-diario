@@ -63,7 +63,14 @@ No navegador: alinhamento conferido deixando o texto da camada visível em verme
 no tema escuro e no celular; digitar antes, dentro e depois; desmarcar parte; recarregar.
 **Bugs achados e corrigidos antes de entregar:** desmarcar parte deixava um espaço destacado; no celular e ao alternar a tela cheia a camada ficava
 com a largura antiga até a tela ser redesenhada (agora mede na hora); texto enorme (120 mil letras, 600 marcações) levava 26 ms por tecla e agora leva 0,7 ms.
-**Não testado:** seleção por toque em celular real (Android e iPhone), em que o comportamento da seleção ao tocar no botão varia.
+**Publicação:** coluna `highlights` criada no Supabase pelo SQL Editor (via Claude in Chrome; ele chegou a aparecer desconectado e voltou sozinho)
+antes do `git push`. Importante: o app novo pede a coluna `highlights` na sincronização; sem ela, a sincronização para.
+App publicado conferido: versão 1.4, "✓ Sincronizado", consulta com `highlights` ok e console sem erros.
+**Confirmado pelo usuário:** marca-texto funcionando no celular e no PC (10/11/2026).
+**Teste de ponta a ponta do ✨ Corrigir com marcações** (IA real, cópia local lendo os modelos do D:): 4 trechos marcados com erros e todos
+acompanharam a correção ("medico" → "médico", "as veses a dor no pescoso" → "às vezes, a dor no pescoço" etc.), também no banco.
+Detalhe conhecido: a pontuação que a IA cola na última palavra marcada entra no destaque ("tranquilo" → "tranquilo.").
+**Cuidado:** um aparelho ainda com a versão antiga (1.3 ou anterior) que editar o texto não move as marcações daquela anotação.
 
 ## Sessão 3 (continuação) — PDF, fotos de páginas, revisão geral e correção melhor (v1.3)
 Pedido: exportar em PDF, enviar fotos/digitalizações de páginas do diário físico como anotação, revisar erros e testar bugs e desempenho.
